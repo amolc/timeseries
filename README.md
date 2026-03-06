@@ -113,5 +113,5 @@ Forecasting BTCUSD prices using historical market data with deep learning models
     ```
 3.  **Run MLflow server**:
     ```bash
-    mlflow server --host 127.0.0.1 --port 5000
+    mlflow server --host 0.0.0.0 --port 5001 --backend-store-uri ./mlruns --allowed-hosts "*" --cors-allowed-origins "*"
     ```
