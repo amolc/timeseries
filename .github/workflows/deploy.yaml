@@ -15,7 +15,7 @@ jobs:
       - name: Deploy to Server (Optimized)
         env:
           PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          HOSTNAME: timeseries.quantbots.co
+          HOSTNAME: forecast.quantbots.co
           USER_NAME: ubuntu
           TARGET_DIR: /home/ubuntu/timeseries
         run: |
