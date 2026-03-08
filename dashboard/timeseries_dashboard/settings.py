@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-1!2)lx813@h7f8b9v_x^gt&6n!i!=1ju%pqq(34*6!c8*nwdp&
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['forecast.quantbots.co', 'localhost', '127.0.0.1', '*']
 
 
 # Application definition
