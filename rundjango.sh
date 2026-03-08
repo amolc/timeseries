@@ -11,4 +11,4 @@ cd "$PROJECT_ROOT/dashboard"
 
 echo "Starting Django Development Server..."
 # Run the Django server
-python3 manage.py runserver
+python3 manage.py runserver 9900
