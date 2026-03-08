@@ -1,0 +1,61 @@
+name: Deploy to Server timeserirs  to Main
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Deploy to Server (Optimized)
+        env:
+          PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          HOSTNAME: timeseries.quantbots.co
+          USER_NAME: ubuntu
+          TARGET_DIR: /home/ubuntu/timeseries
+        run: |
+          # 1. Setup SSH Key
+          if [ -z "$PRIVATE_KEY" ]; then
+            echo "Error: SSH_PRIVATE_KEY secret is not set in GitHub Secrets."
+            exit 1
+          fi
+          echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
+          
+          # 2. Optimized Sync (Directly from runner to target)
+          # This only syncs changed files and skips intermediate folders
+          echo "Syncing changed files..."
+          rsync -avz -e "ssh -i private_key -o StrictHostKeyChecking=no" \
+            --exclude='.git/' \
+            --exclude='venv/' \
+            --exclude='logs/' \
+            --exclude='__pycache__/' \
+            --exclude='*.pyc' \
+            --exclude='db.sqlite3' \
+            --exclude='qdrant_debug.log' \
+            --exclude='gunicorn*.log' \
+            --exclude='gunicorn.pid' \
+            --exclude='.qodo/' \
+            --exclude='debug_*.py' \
+            --exclude='test_*.py' \
+            --exclude='temp_*.py' \
+            --exclude='performance_test.py' \
+            --exclude='fix_*.py' \
+            --exclude='staticfiles/' \
+            ./ ${USER_NAME}@${HOSTNAME}:${TARGET_DIR}/
+          
+          # 3. Remote Commands (Permissions, Migrations, Restarts)
+          ssh -i private_key -o StrictHostKeyChecking=no ${USER_NAME}@${HOSTNAME} << 'EOF'
+            cd /home/ubuntu/timeseries/
+            chmod +x rundjango.sh 
+            echo "Restarting services..."
+            pm2 restart timeseries || (pm2 start ./rundjango.sh --name "timeseries")
+            pm2 restart run_worker || (pm2 start ./run_worker.sh --name "run_worker")
+            pm2 restart run_beat || (pm2 start ./run_beat.sh --name "run_beat")
+
+            echo "Deployment completed successfully!"
+          EOF
