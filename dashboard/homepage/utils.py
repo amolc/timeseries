@@ -9,8 +9,9 @@ def get_landing_assets_data():
     """
     assets = {
         'BTCUSD': 'BTC-USD',
-        'GOLD': 'GC=F',
+        'PAXUSD': 'PAXG-USD',
         'SPX500': '^GSPC',
+        'GOLD': 'GC=F',
         'NIFTY': '^NSEI'
     }
     
@@ -21,8 +22,13 @@ def get_landing_assets_data():
             # Fetch 3 months of daily data
             df = yf.download(ticker, period="3mo", interval="1d")
             if df is not None and not df.empty:
+                # Handle MultiIndex columns (common in newer yfinance versions)
                 if isinstance(df.columns, pd.MultiIndex):
-                    df.columns = df.columns.get_level_values(0)
+                    # Try to find the level that contains 'Close'
+                    if 'Close' in df.columns.get_level_values(0):
+                        df.columns = df.columns.get_level_values(0)
+                    else:
+                        df.columns = df.columns.get_level_values(1)
                 data_results[name] = df
             else:
                 data_results[name] = None

@@ -7,6 +7,16 @@ import sys
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'timeseries_dashboard.settings')
+    
+    # Ensure current directory and project root are in sys.path
+    # Use absolute paths to avoid confusion
+    current_dir = "/Users/amolc/2026/timeseries/dashboard"
+    project_root = "/Users/amolc/2026/timeseries"
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

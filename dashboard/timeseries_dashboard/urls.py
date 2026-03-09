@@ -16,11 +16,16 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from homepage.views import landing_page
+from homepage.views import landing_page, asset_dashboard
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', landing_page, name='landing_page'),
+    path('dashboard/btc/', include('btcusd.urls')),
+    path('dashboard/paxusd/', include('paxusd.urls')),
+    path('dashboard/spx500/', include('spx500.urls')),
+    path('dashboard/gold/', include('gold.urls')),
+    path('dashboard/nifty/', include('nifty.urls')),
     path('dashboard/', include('monitoring.urls')),
     path('ab-testing/', include('ab_testing.urls')),
     path('roi/', include('roi.urls')),

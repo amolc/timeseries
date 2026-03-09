@@ -1,0 +1,23 @@
+artifact_path: /Users/amolc/2026/timeseries/mlruns/20/models/m-fb1cf63929794582aa206d6780b432dc/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.12.3
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.7.1
+    skops_trusted_types: null
+mlflow_version: 3.10.1
+model_id: m-fb1cf63929794582aa206d6780b432dc
+model_size_bytes: 754
+model_uuid: m-fb1cf63929794582aa206d6780b432dc
+prompts: null
+run_id: 2a3b9d05539747b0b28afe6cbd8c6954
+utc_time_created: '2026-03-09 10:44:28.586914'

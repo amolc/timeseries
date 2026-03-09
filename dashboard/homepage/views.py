@@ -13,10 +13,19 @@ def landing_page(request):
     Enhanced landing page with 3-month interactive data for BTC, GOLD, SPX500, and NIFTY.
     """
     # Configure MLflow for BTC prediction
-    ml_dir = os.path.join(settings.BASE_DIR.parent, "ml")
-    mlruns_path = os.path.join(ml_dir, "mlruns")
-    tracking_uri = f"file://{mlruns_path}"
-    mlflow.set_tracking_uri(tracking_uri)
+    try:
+        ml_dir = os.path.join(settings.BASE_DIR.parent, "ml")
+        if not os.path.exists(ml_dir):
+            # Fallback to current project root if "ml" dir doesn't exist outside
+            ml_dir = settings.BASE_DIR.parent
+        
+        mlruns_path = os.path.join(ml_dir, "mlruns")
+        tracking_uri = f"file://{mlruns_path}"
+        # Only set if not already pointing to a valid sqlite/file uri from other apps
+        if not mlflow.get_tracking_uri().startswith("sqlite"):
+            mlflow.set_tracking_uri(tracking_uri)
+    except Exception:
+        pass
     
     client = MlflowClient()
     latest_prediction_lr = "N/A"
@@ -37,24 +46,40 @@ def landing_page(request):
     except Exception as e:
         print(f"Error fetching MLflow prediction: {e}")
 
-    # Fetch 3-month data for all assets
     assets_data = get_landing_assets_data()
+    # Add PAXUSD to assets if needed, though get_landing_assets_data might already handle it
+    # For now, let's ensure PAXUSD is in the list if we want it on the landing page
+    if 'PAXUSD' not in assets_data:
+        # This is just a safeguard, ideally get_landing_assets_data should be updated
+        pass
     
     asset_info = []
     
     for name, df in assets_data.items():
-        if df is not None and not df.empty:
-            # Latest price and change
-            latest_price = df['Close'].iloc[-1]
-            prev_price = df['Close'].iloc[-2]
+        if df is not None and not df.empty and len(df) >= 2:
+            # Re-ensure index is datetime and sorted
+            df.index = pd.to_datetime(df.index)
+            df = df.sort_index()
+            
+            # Ensure we have a single Series for 'Close'
+            close_series = df['Close']
+            if isinstance(close_series, pd.DataFrame):
+                close_series = close_series.iloc[:, 0]
+            
+            latest_price = float(close_series.iloc[-1])
+            prev_price = float(close_series.iloc[-2])
             price_change = latest_price - prev_price
             pct_change = (price_change / prev_price) * 100
+
+            # Add technical indicators if needed (e.g., MA7)
+            if len(df) >= 7:
+                df['MA7'] = close_series.rolling(window=7).mean()
             
             # Generate mini-graph for the card
             fig_mini = go.Figure()
             fig_mini.add_trace(go.Scatter(
                 x=df.index, 
-                y=df['Close'], 
+                y=close_series, 
                 mode='lines',
                 line=dict(color='#f7931a' if pct_change >= 0 else '#ff4d4d', width=2),
                 fill='tozeroy',
@@ -76,7 +101,7 @@ def landing_page(request):
             fig_main = go.Figure()
             fig_main.add_trace(go.Scatter(
                 x=df.index, 
-                y=df['Close'], 
+                y=close_series, 
                 mode='lines', 
                 name=f'{name} Price',
                 line=dict(color='#f7931a', width=2.5),
@@ -118,7 +143,7 @@ def landing_page(request):
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=12, color='#888'), bgcolor='rgba(0,0,0,0)'),
                 hovermode='x unified'
             )
-            main_plot = plot(fig_main, output_type='div', include_plotlyjs=True if name == 'BTCUSD' else False)
+            main_plot = plot(fig_main, output_type='div', include_plotlyjs=False)
             
             asset_info.append({
                 'name': name,
@@ -134,4 +159,106 @@ def landing_page(request):
         'asset_info': asset_info,
         'latest_prediction': latest_prediction_lr
     })
+
+def asset_dashboard(request, asset_name):
+    """
+    Dedicated dashboard for a specific asset.
+    """
+    assets_data = get_landing_assets_data()
+    df = assets_data.get(asset_name)
+
+    if df is None or df.empty or len(df) < 2:
+        return render(request, 'homepage/error.html', {'message': f'Insufficient data found for {asset_name}'})
+
+    # Ensure index is datetime and sorted
+    df.index = pd.to_datetime(df.index)
+    df = df.sort_index()
+
+    # Configure MLflow for prediction if applicable
+    latest_prediction_lr = "N/A"
+    if asset_name == 'BTCUSD':
+        try:
+            ml_dir = os.path.join(settings.BASE_DIR.parent, "ml")
+            mlruns_path = os.path.join(ml_dir, "mlruns")
+            tracking_uri = f"file://{mlruns_path}"
+            mlflow.set_tracking_uri(tracking_uri)
+            
+            client = MlflowClient()
+            exp = client.get_experiment_by_name("BTCUSD_Linear_Regression")
+            if exp:
+                runs = client.search_runs(
+                    experiment_ids=[exp.experiment_id],
+                    order_by=["attributes.start_time DESC"],
+                    max_results=1
+                )
+                if runs:
+                    pred = runs[0].data.metrics.get('predicted_next_hour_close', 'N/A')
+                    if pred != "N/A":
+                        latest_prediction_lr = f"{pred:.2f}"
+        except Exception as e:
+            print(f"Error fetching MLflow prediction for dashboard: {e}")
+
+    # Ensure we have a single Series for 'Close'
+    close_series = df['Close']
+    if isinstance(close_series, pd.DataFrame):
+        close_series = close_series.iloc[:, 0]
+
+    # Add technical indicators if needed (e.g., MA7)
+    if len(df) >= 7:
+        df['MA7'] = close_series.rolling(window=7).mean()
+
+    # Latest price and change
+    try:
+        latest_price = float(close_series.iloc[-1])
+        prev_price = float(close_series.iloc[-2])
+        price_change = latest_price - prev_price
+        pct_change = (price_change / prev_price) * 100
+    except Exception as e:
+        return render(request, 'homepage/error.html', {'message': f'Error processing data for {asset_name}: {str(e)}'})
+
+    # Main interactive graph
+    fig_main = go.Figure()
+    fig_main.add_trace(go.Scatter(
+        x=df.index, 
+        y=close_series, 
+        mode='lines', 
+        name=f'{asset_name} Price',
+        line=dict(color='#f7931a', width=3),
+        fill='tozeroy',
+        fillcolor='rgba(247, 147, 26, 0.05)',
+        hovertemplate='<b>Price:</b> $%{y:,.2f}<br><b>Date:</b> %{x}<extra></extra>'
+    ))
+
+    # Add technical indicators if needed (e.g., MA7)
+    if 'MA7' in df.columns:
+        fig_main.add_trace(go.Scatter(
+            x=df.index, y=df['MA7'], mode='lines', name='MA7',
+            line=dict(color='rgba(255, 255, 255, 0.3)', width=1)
+        ))
+
+    fig_main.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#e0e0e0', family="Inter, sans-serif"),
+        xaxis=dict(showgrid=False, showline=True, linecolor='#333', tickfont=dict(color='#666'), type='date'),
+        yaxis=dict(showgrid=True, gridcolor='#1a1a1a', showline=False, tickfont=dict(color='#666'), side='right', tickformat='$,.2f'),
+        margin=dict(l=0, r=0, t=40, b=0),
+        height=600,
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=12, color='#888'), bgcolor='rgba(0,0,0,0)'),
+        hovermode='x unified'
+    )
+    main_plot = plot(fig_main, output_type='div', include_plotlyjs=True)
+
+    context = {
+        'asset_name': asset_name,
+        'latest_price': f"{latest_price:,.2f}",
+        'price_change': f"{price_change:,.2f}",
+        'pct_change': f"{pct_change:+.2f}%",
+        'is_positive': pct_change >= 0,
+        'main_plot': main_plot,
+        'latest_prediction': latest_prediction_lr,
+    }
+
+    return render(request, 'homepage/asset_dashboard.html', context)
 
