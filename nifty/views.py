@@ -40,15 +40,43 @@ def _get_last_close_price(run):
         return None
 
 def nifty_dashboard(request):
-    """Main Nifty Dashboard with interval selection cards."""
+    """Main Nifty Dashboard with interval selection cards and top predictions."""
     # Get latest data for 1h to show the main graph
     processed_file = PROJECT_ROOT / "nifty" / "data" / "processed" / "nifty_1h_processed.csv"
     
     context = {
         'asset_name': 'Nifty 50',
         'intervals': ['1h', '1d', '1w', '1m'],
+        'predictions': {},
     }
     
+    # Fetch predictions for each interval from MLflow
+    from mlflow.tracking import MlflowClient
+    client = MlflowClient()
+    
+    for interval in context['intervals']:
+        exp_name = f"NIFTY_LR_{interval}"
+        experiment = client.get_experiment_by_name(exp_name)
+        if experiment:
+            runs = client.search_runs(
+                experiment_ids=[experiment.experiment_id],
+                order_by=["attributes.start_time DESC"],
+                max_results=1
+            )
+            if runs:
+                run = runs[0]
+                pred = _get_predicted_price(run)
+                last_close = _get_last_close_price(run)
+                if pred and last_close:
+                    change = pred - last_close
+                    pct = (change / last_close) * 100
+                    context['predictions'][interval] = {
+                        'price': f"{pred:,.2f}",
+                        'change': f"{change:+,.2f}",
+                        'pct': f"{pct:+.2f}%",
+                        'is_positive': change >= 0
+                    }
+
     if processed_file.exists():
         df = pd.read_csv(processed_file, index_col=0, parse_dates=True)
         latest_price = df['Close'].iloc[-1]
@@ -103,7 +131,8 @@ def interval_detail(request, interval):
         
         # Real ROI & Model Comparison (LR vs ARIMA)
         try:
-            client = mlflow.tracking.MlflowClient()
+            from mlflow.tracking import MlflowClient
+            client = MlflowClient()
             experiments = {
                 "LR": f"NIFTY_LR_{interval}",
                 "ARIMA": f"NIFTY_ARIMA_{interval}"

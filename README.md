@@ -1,4 +1,4 @@
-# Market Intelligence Time Series Forecasting
+# Quantbots Intelligence Time Series Forecasting
 
 A production-ready Market Intelligence system for forecasting major assets (BTC, GOLD, NIFTY, PAXG, SPX500) using Time Series models (Linear Regression, ARIMA). The project features a full MLOps lifecycle with experiment tracking, automated scheduling, and a comprehensive Django dashboard.
 
@@ -81,7 +81,7 @@ A production-ready Market Intelligence system for forecasting major assets (BTC,
 - [x] Updated documentation and execution scripts.
 
 ---
-*This project is a critical lifeline for financial forecasting and is built with scalability and reliability as core principles.*
+*Quantbots Intelligence is the new frontier of machine learning and AI bots to create intelligent forecasting.*
 
 ## **Proposed Project Structure**
 

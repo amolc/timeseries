@@ -1,6 +1,6 @@
-# Market Intelligence Pipeline Tasks
+# Quantbots Intelligence Pipeline Tasks
 
-This document explains the Celery-based scheduling and execution logic for the Market Intelligence ML pipelines.
+This document explains the Celery-based scheduling and execution logic for the Quantbots Intelligence ML pipelines.
 
 ## Task Architecture
 
