@@ -1,0 +1,23 @@
+artifact_path: /home/ubuntu/timeseries/mlruns/40/models/m-302c73633eda424a908a08a9d66c3a35/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.12.3
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.8.0
+    skops_trusted_types: null
+mlflow_version: 3.10.1
+model_id: m-302c73633eda424a908a08a9d66c3a35
+model_size_bytes: 754
+model_uuid: m-302c73633eda424a908a08a9d66c3a35
+prompts: null
+run_id: 4120825456cf43a9a8b8d820d0ce5e84
+utc_time_created: '2026-03-09 17:29:03.441293'

@@ -11,10 +11,11 @@
         :root {
             --btc-orange: #f7931a;
             --dark-bg: #0d0d0d;
-            --card-bg: #1a1a1a;
-            --text-muted: #aaa;
+            --card-bg: #181a1f;
+            --text-muted: #d0d5dd;
             --positive: #00ff00;
             --negative: #ff4d4d;
+            --surface-border: #3a404d;
         }
         body {
             background-color: var(--dark-bg);
@@ -44,7 +45,7 @@
         }
         .asset-card {
             background-color: var(--card-bg);
-            border: 1px solid #333;
+            border: 1px solid var(--surface-border);
             border-radius: 16px;
             padding: 24px;
             transition: all 0.3s ease;
@@ -86,7 +87,7 @@
             background-color: var(--card-bg);
             border-radius: 24px;
             padding: 40px;
-            border: 1px solid #333;
+            border: 1px solid var(--surface-border);
             margin-top: 40px;
             margin-bottom: 100px;
             box-shadow: 0 40px 100px rgba(0,0,0,0.5);
@@ -118,10 +119,18 @@
             background-color: white;
             color: black;
         }
+        .text-muted {
+            color: var(--text-muted) !important;
+        }
+        .x-small {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
         .navbar {
             background-color: rgba(13, 13, 13, 0.8);
             backdrop-filter: blur(15px);
-            border-bottom: 1px solid #222;
+            border-bottom: 1px solid var(--surface-border);
             padding: 20px 0;
         }
         .navbar-brand {
@@ -130,14 +139,14 @@
         }
         .feature-card {
             background-color: var(--card-bg);
-            border: 1px solid #222;
+            border: 1px solid var(--surface-border);
             padding: 40px;
             border-radius: 20px;
             height: 100%;
             transition: border-color 0.3s;
         }
         .feature-card:hover {
-            border-color: #444;
+            border-color: #707b91;
         }
         .feature-icon {
             font-size: 2.5rem;
@@ -146,8 +155,15 @@
         }
         .footer {
             padding: 100px 0 50px;
-            border-top: 1px solid #222;
+            border-top: 1px solid var(--surface-border);
             color: var(--text-muted);
+        }
+        .contact-strip {
+            background: #141821;
+            border: 1px solid var(--surface-border);
+            border-radius: 16px;
+            padding: 18px 20px;
+            text-align: left;
         }
         .mini-chart {
             height: 60px;
@@ -171,13 +187,13 @@
 <nav class="navbar navbar-expand-lg fixed-top">
     <div class="container">
         <a class="navbar-brand text-white fw-bold" href="/">
-            <span style="color: var(--btc-orange)">QUANT</span>LABS
+            <span style="color: var(--btc-orange)">Intelligence</span>.quantbots.co
         </a>
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto align-items-center">
                 <li class="nav-item"><a class="nav-link text-white mx-3" href="#market">Markets</a></li>
                 <li class="nav-item"><a class="nav-link text-white mx-3" href="#services">Consultancy</a></li>
-                <li class="nav-item"><a class="nav-link text-white mx-3" href="/dashboard/">Dashboard</a></li>
+                <li class="nav-item"><a class="nav-link text-white mx-3" href="/dashboard/btc/">Dashboard</a></li>
                 <li class="nav-item"><a class="btn btn-btc btn-sm py-2 px-4 ms-3" href="#contact">Collaborate</a></li>
             </ul>
         </div>
@@ -190,7 +206,7 @@
         <p class="lead">Institutional-grade intelligence for Global Assets. We deliver predictive analytics and strategic consultancy for the modern financial landscape.</p>
         <div class="mt-5">
             <a href="#contact" class="btn btn-btc">Partner With Us</a>
-            <a href="/dashboard/" class="btn btn-outline-white">Live Dashboard</a>
+            <a href="/dashboard/btc/" class="btn btn-outline-white">Live Dashboard</a>
         </div>
     </div>
 </section>
@@ -213,7 +229,7 @@
                     {{ asset.mini_plot|safe }}
                 </div>
                 <div class="mt-3 text-center">
-                    <a href="{% if asset.name == 'BTCUSD' %}{% url 'btcusd:dashboard' %}{% elif asset.name == 'PAXUSD' %}{% url 'paxusd:dashboard' %}{% elif asset.name == 'SPX500' %}{% url 'spx500:dashboard' %}{% elif asset.name == 'GOLD' %}{% url 'gold:dashboard' %}{% else %}{% url 'nifty:dashboard' %}{% endif %}" class="btn btn-outline-light btn-sm w-100 py-1" style="font-size: 0.7rem; opacity: 0.7; border-color: #333;">Open Dashboard</a>
+                    <a href="{% if asset.name == 'BTCUSD' %}{% url 'btcusd:dashboard' %}{% elif asset.name == 'PAXUSD' %}{% url 'paxusd:dashboard' %}{% elif asset.name == 'SPX500' %}{% url 'spx500:dashboard' %}{% elif asset.name == 'GOLD' %}{% url 'gold:dashboard' %}{% else %}{% url 'nifty:dashboard' %}{% endif %}" class="btn btn-outline-light btn-sm w-100 py-1" style="font-size: 0.75rem; opacity: 1; border-color: #667085; color: #f8fafc;">Open Dashboard</a>
                 </div>
             </div>
         </div>
@@ -277,10 +293,17 @@
 <section id="contact" class="py-5 mb-5" style="background: linear-gradient(180deg, var(--dark-bg) 0%, #111 100%);">
     <div class="container py-5 text-center">
         <h2 class="display-5 fw-bold mb-4">Elevate Your Strategy</h2>
-        <p class="text-muted mb-5 mx-auto" style="max-width: 600px;">We collaborate with institutional partners, hedge funds, and family offices on bespoke quantitative projects.</p>
+        <p class="text-muted mb-4 mx-auto" style="max-width: 700px;">We collaborate with institutional partners, hedge funds, family offices, and builder teams on bespoke quantitative projects.</p>
+        <div class="contact-strip mx-auto mb-4" style="max-width: 760px;">
+            <div class="row g-3">
+                <div class="col-md-4"><strong>Email:</strong> collaboration@quantbots.co</div>
+                <div class="col-md-4"><strong>Response Time:</strong> Within 24 hours</div>
+                <div class="col-md-4"><strong>Focus:</strong> Strategy, Model Ops, Risk</div>
+            </div>
+        </div>
         <div class="d-flex justify-content-center gap-3">
-            <a href="mailto:collaboration@quantlabs.io" class="btn btn-btc btn-lg px-5">Get in Touch</a>
-            <a href="#" class="btn btn-outline-white btn-lg px-5">View Case Studies</a>
+            <a href="mailto:collaboration@quantbots.co?subject=Quant%20Collaboration%20Inquiry" class="btn btn-btc btn-lg px-5">Get in Touch</a>
+            <a href="/dashboard/btc/" class="btn btn-outline-white btn-lg px-5">Explore Live Dashboard</a>
         </div>
     </div>
 </section>
@@ -289,11 +312,11 @@
     <div class="container">
         <div class="row align-items-center">
             <div class="col-md-6">
-                <h4 class="fw-bold mb-1"><span style="color: var(--btc-orange)">QUANT</span>LABS</h4>
+                <h4 class="fw-bold mb-1"><span style="color: var(--btc-orange)">Intelligence</span>.quantbots.co</h4>
                 <p class="small mb-0">Advanced Market Intelligence & Strategy</p>
             </div>
             <div class="col-md-6 text-md-end">
-                <p class="small mb-0">&copy; 2026 QuantLabs IO. All rights reserved.</p>
+                <p class="small mb-0">&copy; 2026 QuantBots. All rights reserved.</p>
             </div>
         </div>
     </div>

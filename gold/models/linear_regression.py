@@ -70,9 +70,14 @@ def train_linear_regression(interval="1h", test_size=0.2):
         last_features = X.iloc[-1].values.reshape(1, -1)
         pred_next = model.predict(last_features)[0]
         
+        mlflow.log_param("last_close_price", f"{last_price:.8f}")
+        mlflow.log_param("predicted_price", f"{float(pred_next):.8f}")
+
         mlflow.log_metric("mse", mse)
         mlflow.log_metric("mae", mae)
         mlflow.log_metric("pred_next", float(pred_next))
+        mlflow.log_metric("last_close_price", last_price)
+        mlflow.log_metric("predicted_price", float(pred_next))
         
         mlflow_sklearn = importlib.import_module("mlflow.sklearn")
         mlflow_sklearn.log_model(model, "model", registered_model_name=f"GOLD_LR_{interval}")

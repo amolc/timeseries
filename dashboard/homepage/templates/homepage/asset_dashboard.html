@@ -10,10 +10,11 @@
         :root {
             --btc-orange: #f7931a;
             --dark-bg: #0d0d0d;
-            --card-bg: #1a1a1a;
-            --text-muted: #aaa;
+            --card-bg: #181a1f;
+            --text-muted: #d0d5dd;
             --positive: #00ff00;
             --negative: #ff4d4d;
+            --surface-border: #3a404d;
         }
         body {
             background-color: var(--dark-bg);
@@ -22,10 +23,18 @@
             margin: 0;
             min-height: 100vh;
         }
+        .text-muted {
+            color: var(--text-muted) !important;
+        }
+        .x-small {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
         .navbar {
             background-color: rgba(13, 13, 13, 0.8);
             backdrop-filter: blur(15px);
-            border-bottom: 1px solid #222;
+            border-bottom: 1px solid var(--surface-border);
             padding: 15px 0;
         }
         .dashboard-container {
@@ -45,7 +54,7 @@
         .negative { color: var(--negative); }
         .graph-card {
             background-color: var(--card-bg);
-            border: 1px solid #333;
+            border: 1px solid var(--surface-border);
             border-radius: 24px;
             padding: 30px;
             box-shadow: 0 40px 100px rgba(0,0,0,0.5);
@@ -67,14 +76,24 @@
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg fixed-top">
+<nav class="navbar navbar-expand-lg navbar-dark fixed-top">
     <div class="container">
         <a class="navbar-brand text-white fw-bold" href="/">
-            <span style="color: var(--btc-orange)">QUANT</span>LABS
+            <span style="color: var(--btc-orange)">Intelligence</span>.quantbots.co
         </a>
-        <div class="ms-auto">
-            <a href="/" class="btn btn-outline-light btn-sm me-2">Back to Landing</a>
-            <a href="/dashboard/" class="btn btn-btc btn-sm">Full Monitoring</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarInner" aria-controls="navbarInner" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarInner">
+            <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+                <li class="nav-item"><a class="nav-link text-white" href="/">Home</a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="/dashboard/btc/">BTC</a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="/dashboard/paxusd/">PAXUSD</a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="/dashboard/gold/">Gold</a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="/dashboard/nifty/">Nifty</a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="/dashboard/spx500/">SPX500</a></li>
+                <li class="nav-item mt-2 mt-lg-0"><a class="btn btn-outline-light btn-sm" href="mailto:collaboration@quantbots.co">Connect</a></li>
+            </ul>
         </div>
     </div>
 </nav>
@@ -117,7 +136,7 @@
         <div class="col-md-4">
             <div class="graph-card h-100">
                 <h5 class="fw-bold mb-3">Model Status</h5>
-                <p class="text-muted">Currently tracking {{ asset_name }} using standard statistical regime detection.</p>
+                <p class="text-muted">Currently tracking {{ asset_name }} using live statistical regime detection and model monitoring.</p>
                 <div class="d-flex align-items-center mt-3">
                     <div class="rounded-circle bg-success me-2" style="width: 10px; height: 10px;"></div>
                     <span class="small fw-bold">LIVE REGIME: STABLE</span>
@@ -127,7 +146,7 @@
         <div class="col-md-8">
             <div class="graph-card h-100">
                 <h5 class="fw-bold mb-3">Institutional Insights</h5>
-                <p class="text-muted">Our proprietary analysis indicates current volatility levels are within normal historical ranges for {{ asset_name }}. Institutional flow data suggests a consolidation phase.</p>
+                <p class="text-muted">Our analysis indicates current volatility levels and directional risk profile for {{ asset_name }} based on recent model runs. Reach us at <a href="mailto:collaboration@quantbots.co" class="text-white">collaboration@quantbots.co</a> for custom strategy support.</p>
             </div>
         </div>
     </div>

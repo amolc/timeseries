@@ -62,11 +62,11 @@ def run_interval_batch(interval):
     # Using the .apply_async() or .delay() pattern for chains is preferred
     # but .s() and .apply_async() are the correct Celery way
     c = chain(
-        run_asset_pipeline.s("BTCUSD", interval),
-        run_asset_pipeline.s("GOLD", interval),
-        run_asset_pipeline.s("NIFTY", interval),
-        run_asset_pipeline.s("PAXUSD", interval),
-        run_asset_pipeline.s("SPX500", interval)
+        run_asset_pipeline.si("BTCUSD", interval),
+        run_asset_pipeline.si("GOLD", interval),
+        run_asset_pipeline.si("NIFTY", interval),
+        run_asset_pipeline.si("PAXUSD", interval),
+        run_asset_pipeline.si("SPX500", interval)
     )
     return c.apply_async()
 
@@ -79,10 +79,10 @@ def run_complete_cycle():
     
     # Chain all interval batches
     c = chain(
-        run_interval_batch.s("1h"),
-        run_interval_batch.s("1d"),
-        run_interval_batch.s("1w"),
-        run_interval_batch.s("1m")
+        run_interval_batch.si("1h"),
+        run_interval_batch.si("1d"),
+        run_interval_batch.si("1w"),
+        run_interval_batch.si("1m")
     )
     return c.apply_async()
 

@@ -10,6 +10,35 @@ PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 MLFLOW_DB_PATH = PROJECT_ROOT / "mlflow.db"
 os.environ["MLFLOW_TRACKING_URI"] = f"sqlite:///{MLFLOW_DB_PATH}"
 
+
+def _get_predicted_price(run):
+    raw = (
+        run.data.params.get("predicted_price")
+        or run.data.metrics.get("predicted_price")
+        or run.data.metrics.get("pred_next")
+    )
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _get_last_close_price(run):
+    raw = (
+        run.data.params.get("last_close_price")
+        or run.data.metrics.get("last_close_price")
+        or run.data.metrics.get("last_record_price")
+        or run.data.metrics.get("last_close")
+    )
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
 def nifty_dashboard(request):
     """Main Nifty Dashboard with interval selection cards."""
     # Get latest data for 1h to show the main graph
@@ -60,6 +89,9 @@ def interval_detail(request, interval):
     context = {
         'interval': interval,
         'asset_name': 'Nifty 50',
+        'forecast_price_lr': "N/A",
+        'forecast_price_arima': "N/A",
+        'last_run_time': 'N/A',
     }
     
     if processed_file.exists():
@@ -89,8 +121,8 @@ def interval_detail(request, interval):
                     
                     temp_signals = []
                     for run in runs:
-                        last_close = run.data.metrics.get('last_record_price')
-                        pred_next = run.data.metrics.get('pred_next')
+                        last_close = _get_last_close_price(run)
+                        pred_next = _get_predicted_price(run)
                         run_time = run.data.params.get('last_record_time', 'N/A')
                         
                         if last_close is not None and pred_next is not None:
@@ -106,6 +138,8 @@ def interval_detail(request, interval):
                     for sig in temp_signals[:5]:
                         processed_signals.append({
                             'time': sig['time'],
+                            'last_close': f"{sig['last_close']:,.2f}",
+                            'predicted': f"{sig['pred_next']:,.2f}",
                             'signal': sig['signal'],
                             'signal_class': 'success' if sig['signal'] == 'BUY' else 'danger',
                             'result': 'PENDING',
@@ -118,20 +152,18 @@ def interval_detail(request, interval):
                         'profit': '+124.5',
                         'signals': processed_signals
                     }
+
+                    if temp_signals:
+                        if model_key == "LR":
+                            context['forecast_price_lr'] = f"{temp_signals[0]['pred_next']:,.2f}"
+                            context['last_run_time'] = temp_signals[0]['time']
+                        elif model_key == "ARIMA":
+                            context['forecast_price_arima'] = f"{temp_signals[0]['pred_next']:,.2f}"
             
             context['comparison'] = comparison_data
             
-            # Set top-level forecasts for the box
-            if 'LR' in comparison_data and comparison_data['LR']['signals']:
-                context['forecast_price_lr'] = f"{temp_signals[0]['pred_next']:,.2f}"
-                context['last_run_time'] = temp_signals[0]['time']
-            if 'ARIMA' in comparison_data and comparison_data['ARIMA']['signals']:
-                context['forecast_price_arima'] = f"{temp_signals[0]['pred_next']:,.2f}"
-
         except Exception as e:
             print(f"Error fetching forecast: {e}")
-            context['forecast_price_lr'] = "N/A"
-            context['forecast_price_arima'] = "N/A"
 
         # Interactive Chart
         fig = go.Figure()

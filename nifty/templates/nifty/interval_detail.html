@@ -12,7 +12,7 @@
             --nifty-orange: #ff9933;
             --dark-bg: #0d0d0d;
             --card-bg: #1a1a1a;
-            --text-muted: #aaa;
+            --text-muted: #cdd6e1;
             --positive: #00ff00;
             --negative: #ff4d4d;
         }
@@ -21,10 +21,18 @@
             color: white;
             font-family: 'Inter', sans-serif;
         }
+        .text-muted {
+            color: var(--text-muted) !important;
+        }
+        .x-small {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
         .navbar {
             background-color: rgba(13, 13, 13, 0.9);
             backdrop-filter: blur(10px);
-            border-bottom: 1px solid #333;
+            border-bottom: 1px solid #3a4558;
         }
         .detail-container {
             padding-top: 100px;
@@ -32,14 +40,14 @@
         }
         .stat-card {
             background-color: var(--card-bg);
-            border: 1px solid #333;
+            border: 1px solid #3a4558;
             border-radius: 16px;
             padding: 24px;
             height: 100%;
         }
         .chart-container {
             background-color: var(--card-bg);
-            border: 1px solid #333;
+            border: 1px solid #3a4558;
             border-radius: 24px;
             padding: 30px;
             margin-bottom: 30px;
@@ -58,7 +66,7 @@
         }
         .analytics-card {
             background-color: var(--card-bg);
-            border: 1px solid #333;
+            border: 1px solid #3a4558;
             border-radius: 16px;
             padding: 20px;
             height: 100%;
@@ -89,7 +97,21 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="/">Intelligence<span>.</span></a>
+            <a class="navbar-brand fw-bold" href="/">Intelligence.quantbots.co</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarInner" aria-controls="navbarInner" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarInner">
+                <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+                    <li class="nav-item"><a class="nav-link text-white" href="/">Home</a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="/dashboard/btc/">BTC</a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="/dashboard/paxusd/">PAXUSD</a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="/dashboard/gold/">Gold</a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="/dashboard/nifty/">Nifty</a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="/dashboard/spx500/">SPX500</a></li>
+                    <li class="nav-item mt-2 mt-lg-0"><a class="btn btn-outline-light btn-sm" href="mailto:collaboration@quantbots.co">Connect</a></li>
+                </ul>
+            </div>
         </div>
     </nav>
 
@@ -98,7 +120,7 @@
         
         <div class="row mb-4">
             <div class="col-md-8">
-                <h1 class="fw-800">{{ asset_name }} <span class="text-muted">|</span> {{ interval|upper }} Interval</h1>
+                <h1 class="fw-800">{{ asset_name }} <span style="color: #7d8ca4">|</span> {{ interval|upper }} Interval</h1>
                 <p class="text-muted">Comprehensive technical analysis and performance metrics</p>
             </div>
             <div class="col-md-4 text-md-end">
@@ -199,6 +221,8 @@
                             <thead>
                                 <tr class="text-muted" style="font-size: 0.75rem;">
                                     <th>Time</th>
+                                    <th class="text-end">Close</th>
+                                    <th class="text-end">Predicted</th>
                                     <th>Signal</th>
                                     <th>Result</th>
                                     <th class="text-end">Points</th>
@@ -208,12 +232,14 @@
                                 {% for signal in comparison.LR.signals %}
                                 <tr style="font-size: 0.85rem;">
                                     <td>{{ signal.time }}</td>
+                                    <td class="text-end">{{ signal.last_close|default:"---" }}</td>
+                                    <td class="text-end">{{ signal.pred_next|default:signal.predicted|default:"---" }}</td>
                                     <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
                                     <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
                                     <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="4" class="text-center text-muted">No signal history found.</td></tr>
+                                <tr><td colspan="6" class="text-center text-muted">No signal history found.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -235,6 +261,8 @@
                             <thead>
                                 <tr class="text-muted" style="font-size: 0.75rem;">
                                     <th>Time</th>
+                                    <th class="text-end">Close</th>
+                                    <th class="text-end">Predicted</th>
                                     <th>Signal</th>
                                     <th>Result</th>
                                     <th class="text-end">Points</th>
@@ -244,12 +272,14 @@
                                 {% for signal in comparison.ARIMA.signals %}
                                 <tr style="font-size: 0.85rem;">
                                     <td>{{ signal.time }}</td>
+                                    <td class="text-end">{{ signal.last_close|default:"---" }}</td>
+                                    <td class="text-end">{{ signal.pred_next|default:signal.predicted|default:"---" }}</td>
                                     <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
                                     <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
                                     <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="4" class="text-center text-muted">No signal history found.</td></tr>
+                                <tr><td colspan="6" class="text-center text-muted">No signal history found.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -270,6 +300,16 @@
                         Win rates are based on the model's ability to correctly predict the direction of the next period's movement.
                     </small>
                 </div>
+            </div>
+        </div>
+
+        <div class="mt-4 p-4 rounded-4" style="background: #141821; border: 1px solid #3a4558;">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div>
+                    <h5 class="mb-1">Discuss this model with our team</h5>
+                    <p class="text-muted mb-0">For strategy, integration, or research support: <a href="mailto:collaboration@quantbots.co" class="text-white">collaboration@quantbots.co</a></p>
+                </div>
+                <a href="mailto:collaboration@quantbots.co" class="btn btn-outline-light">Talk to Quantbots</a>
             </div>
         </div>
     </div>

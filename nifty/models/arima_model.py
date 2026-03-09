@@ -61,9 +61,14 @@ def train_arima_model(interval="1h", p=5, d=1, q=0):
         full_model_fit = full_model.fit()
         pred_next = float(full_model_fit.forecast(steps=1).iloc[0])
         
+        mlflow.log_param("last_close_price", f"{last_price:.8f}")
+        mlflow.log_param("predicted_price", f"{float(pred_next):.8f}")
+
         mlflow.log_metric("mse", mse)
         mlflow.log_metric("last_close", float(series.iloc[-1]))
         mlflow.log_metric("pred_next", pred_next)
+        mlflow.log_metric("last_close_price", last_price)
+        mlflow.log_metric("predicted_price", float(pred_next))
         
         print(f"[{interval}] ARIMA Trained: MSE={mse:.4f}, Next Pred={pred_next:.4f}")
         return model_fit, mse, pred_next

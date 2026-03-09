@@ -10,6 +10,36 @@ PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 MLFLOW_DB_PATH = PROJECT_ROOT / "mlflow.db"
 os.environ["MLFLOW_TRACKING_URI"] = f"sqlite:///{MLFLOW_DB_PATH}"
 
+
+def _get_predicted_price(run):
+    """Return predicted price from newest schema first, then legacy metric."""
+    raw = (
+        run.data.params.get("predicted_price")
+        or run.data.metrics.get("predicted_price")
+        or run.data.metrics.get("pred_next")
+    )
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _get_last_close_price(run):
+    raw = (
+        run.data.params.get("last_close_price")
+        or run.data.metrics.get("last_close_price")
+        or run.data.metrics.get("last_record_price")
+        or run.data.metrics.get("last_close")
+    )
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
 def paxusd_dashboard(request):
     """Main PAXUSD Dashboard with interval selection cards."""
     # Get latest data for 1h to show the main graph
@@ -60,6 +90,8 @@ def interval_detail(request, interval):
     context = {
         'interval': interval,
         'asset_name': 'PAXUSD',
+        'forecast_price': "N/A",
+        'last_run_time': 'N/A',
     }
     
     if processed_file.exists():
@@ -74,14 +106,19 @@ def interval_detail(request, interval):
             client = mlflow.tracking.MlflowClient()
             experiment = client.get_experiment_by_name(f"PAXUSD_LR_{interval}")
             if experiment:
-                runs = client.search_runs(experiment.ids, order_by=["attributes.start_time DESC"], max_results=1)
+                runs = client.search_runs(
+                    experiment_ids=[experiment.experiment_id],
+                    order_by=["attributes.start_time DESC"],
+                    max_results=1
+                )
                 if runs:
                     latest_run = runs[0]
-                    context['forecast_price'] = f"{latest_run.data.metrics.get('pred_next', 0):,.2f}"
+                    pred_value = _get_predicted_price(latest_run)
+                    if pred_value is not None:
+                        context['forecast_price'] = f"{pred_value:,.2f}"
                     context['last_run_time'] = latest_run.data.params.get('last_record_time', 'N/A')
         except Exception as e:
             print(f"Error fetching forecast: {e}")
-            context['forecast_price'] = "N/A"
 
         # Interactive Chart
         fig = go.Figure()
@@ -132,8 +169,8 @@ def interval_detail(request, interval):
                     # Convert runs to signals for processing
                     temp_signals = []
                     for run in runs:
-                        last_close = run.data.metrics.get('last_record_price')
-                        pred_next = run.data.metrics.get('pred_next')
+                        last_close = _get_last_close_price(run)
+                        pred_next = _get_predicted_price(run)
                         run_time = run.data.params.get('last_record_time', 'N/A')
                         
                         if last_close is not None and pred_next is not None:
@@ -165,6 +202,7 @@ def interval_detail(request, interval):
                             'time': curr['time'],
                             'last_close': f"{curr['last_close']:,.2f}",
                             'pred_next': f"{curr['pred_next']:,.2f}",
+                            'predicted': f"{curr['pred_next']:,.2f}",
                             'signal': curr['signal'],
                             'signal_class': "success" if curr['signal'] == "BUY" else "danger",
                             'result': "WIN" if is_win else "LOSS",

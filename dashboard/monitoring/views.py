@@ -13,6 +13,8 @@ def dashboard_overview(request):
     """
     Fetches experiment data and model registry info from MLflow for the dashboard.
     """
+    # Redirect generic /dashboard/ traffic to the homepage.
+    return redirect("landing_page")
     # Configure MLflow to use the central sqlite DB in the project root
     project_root = settings.BASE_DIR.parent
     mlflow_db_path = os.path.join(project_root, "mlflow.db")
