@@ -27,7 +27,6 @@ urlpatterns = [
     path('dashboard/gold/', include('gold.urls')),
     path('dashboard/nifty/', include('nifty.urls')),
     path('dashboard/', include('monitoring.urls')),
-    path('ab-testing/', include('ab_testing.urls')),
     path('roi/', include('roi.urls')),
     path('blogs/', include('blogs.urls')),
 ]

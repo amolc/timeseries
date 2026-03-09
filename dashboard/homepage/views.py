@@ -12,27 +12,22 @@ def landing_page(request):
     """
     Enhanced landing page with 3-month interactive data for BTC, GOLD, SPX500, and NIFTY.
     """
-    # Configure MLflow for BTC prediction
+    # Configure MLflow for BTC prediction from the new central DB
     try:
-        ml_dir = os.path.join(settings.BASE_DIR.parent, "ml")
-        if not os.path.exists(ml_dir):
-            # Fallback to current project root if "ml" dir doesn't exist outside
-            ml_dir = settings.BASE_DIR.parent
-        
-        mlruns_path = os.path.join(ml_dir, "mlruns")
-        tracking_uri = f"file://{mlruns_path}"
-        # Only set if not already pointing to a valid sqlite/file uri from other apps
-        if not mlflow.get_tracking_uri().startswith("sqlite"):
-            mlflow.set_tracking_uri(tracking_uri)
+        project_root = settings.BASE_DIR.parent
+        mlflow_db_path = os.path.join(project_root, "mlflow.db")
+        tracking_uri = f"sqlite:///{mlflow_db_path}"
+        mlflow.set_tracking_uri(tracking_uri)
     except Exception:
         pass
     
     client = MlflowClient()
     latest_prediction_lr = "N/A"
     
-    # Get LR Prediction for BTC
+    # Get LR Prediction for BTC (from 1h interval experiment in the new structure)
     try:
-        exp = client.get_experiment_by_name("BTCUSD_Linear_Regression")
+        # The new experiment name format is BTCUSD_LR_1h
+        exp = client.get_experiment_by_name("BTCUSD_LR_1h")
         if exp:
             runs = client.search_runs(
                 experiment_ids=[exp.experiment_id],
@@ -40,7 +35,8 @@ def landing_page(request):
                 max_results=1
             )
             if runs:
-                pred = runs[0].data.metrics.get('predicted_next_hour_close', 'N/A')
+                # The metric name in the new pipeline is 'pred_next'
+                pred = runs[0].data.metrics.get('pred_next', 'N/A')
                 if pred != "N/A":
                     latest_prediction_lr = f"{pred:.2f}"
     except Exception as e:

@@ -1,7 +1,0 @@
-artifact_location: file:///Users/amolc/2026/timeseries/ml/mlruns/738654271411329700
-creation_time: 1772782419706
-experiment_id: '738654271411329700'
-last_update_time: 1772782419706
-lifecycle_stage: active
-name: BTCUSD_ARIMA_Forecasting
-workspace: default

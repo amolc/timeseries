@@ -13,10 +13,10 @@ def dashboard_overview(request):
     """
     Fetches experiment data and model registry info from MLflow for the dashboard.
     """
-    # Configure MLflow to use the correct tracking URI
-    ml_dir = os.path.join(settings.BASE_DIR.parent, "ml")
-    mlruns_path = os.path.join(ml_dir, "mlruns")
-    tracking_uri = f"file://{mlruns_path}"
+    # Configure MLflow to use the central sqlite DB in the project root
+    project_root = settings.BASE_DIR.parent
+    mlflow_db_path = os.path.join(project_root, "mlflow.db")
+    tracking_uri = f"sqlite:///{mlflow_db_path}"
     mlflow.set_tracking_uri(tracking_uri)
     
     # Initialize MLflow Client
@@ -28,10 +28,10 @@ def dashboard_overview(request):
     model_accuracy = "N/A"
     runs_data = []
 
-    # Get Experiments
+    # Get Experiments for BTCUSD across common intervals
     experiments = {
-        "LR": "BTCUSD_Linear_Regression",
-        "ARIMA": "BTCUSD_ARIMA_Forecasting"
+        "LR": "BTCUSD_LR_1h",
+        "ARIMA": "BTCUSD_ARIMA_1h"
     }
 
     for model_key, exp_name in experiments.items():
@@ -43,9 +43,9 @@ def dashboard_overview(request):
                 max_results=10
             )
             for run in runs:
-                m_type = run.data.params.get('model_type', model_key)
+                # In the new structure, metrics are 'mse' and 'pred_next'
                 mse = run.data.metrics.get('mse', 'N/A')
-                pred = run.data.metrics.get('predicted_next_hour_close', 'N/A')
+                pred = run.data.metrics.get('pred_next', 'N/A')
                 
                 if model_key == "LR" and latest_prediction_lr == "N/A" and pred != "N/A":
                     latest_prediction_lr = f"{pred:.2f}"
@@ -55,7 +55,7 @@ def dashboard_overview(request):
                 runs_data.append({
                     'run_id': run.info.run_id,
                     'status': run.info.status,
-                    'model_type': m_type,
+                    'model_type': model_key,
                     'mse': mse,
                     'start_time': pd.to_datetime(run.info.start_time, unit='ms').strftime('%Y-%m-%d %H:%M')
                 })
@@ -66,7 +66,8 @@ def dashboard_overview(request):
     # Visualization and Latest Price
     plot_div = ""
     try:
-        data_path = os.path.join(ml_dir, "data", "processed", "btcusd_processed.csv")
+        # Update path to use the new btcusd app data directory
+        data_path = os.path.join(project_root, "btcusd", "data", "processed", "btcusd_1h_processed.csv")
         if os.path.exists(data_path):
             df = pd.read_csv(data_path, index_col=0, parse_dates=True)
             if not df.empty:

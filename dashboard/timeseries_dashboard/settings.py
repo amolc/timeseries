@@ -48,7 +48,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'monitoring',
-    'ab_testing',
     'roi',
     'blogs',
     'homepage',
@@ -100,6 +99,8 @@ DATABASES = {
 }
 
 
+from celery.schedules import crontab
+
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
@@ -150,8 +151,22 @@ CELERY_TASK_DEFAULT_ROUTING_KEY = 'timeseries'
 
 # Celery Beat Schedule
 CELERY_BEAT_SCHEDULE = {
-    'run-ml-pipeline-every-hour': {
-        'task': 'tasks.run_ml_pipeline',
-        'schedule': 3600.0,  # 1 hour in seconds
+    # 1 Hour Data: Every hour
+    'run-1h-pipeline-every-hour': {
+        'task': 'tasks.run_interval_batch',
+        'schedule': 3600.0,
+        'args': ('1h',),
+    },
+    # 1 Day Data: Every day at 5:30 AM IST (00:00 UTC)
+    # Note: 5:30 AM IST is 00:00 UTC. 
+    'run-1d-pipeline-daily': {
+        'task': 'tasks.run_interval_batch',
+        'schedule': crontab(hour=0, minute=0),
+        'args': ('1d',),
+    },
+    # Weekly & Monthly Data: Every Sunday at 1:00 AM UTC
+    'run-weekly-monthly-sunday': {
+        'task': 'tasks.run_complete_cycle',
+        'schedule': crontab(day_of_week=0, hour=1, minute=0),
     },
 }

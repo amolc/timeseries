@@ -1,1 +1,0 @@
-{"response": "You can use MLflow's model serving. Register the model and then serve it with the mlflow models serve command."}

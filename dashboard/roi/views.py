@@ -10,19 +10,19 @@ def roi_index(request):
     """
     Displays simulated ROI and financial impact of the forecasting model.
     """
-    # Configure MLflow to use the correct tracking URI
-    ml_dir = os.path.join(settings.BASE_DIR.parent, "ml")
-    mlruns_path = os.path.join(ml_dir, "mlruns")
-    tracking_uri = f"file://{mlruns_path}"
+    # Configure MLflow to use the central sqlite DB in the project root
+    project_root = settings.BASE_DIR.parent
+    mlflow_db_path = os.path.join(project_root, "mlflow.db")
+    tracking_uri = f"sqlite:///{mlflow_db_path}"
     mlflow.set_tracking_uri(tracking_uri)
     
     # Initialize MLflow Client
     client = MlflowClient()
     
-    # Get Experiments
+    # Get Experiments for BTCUSD across common intervals
     experiments = {
-        "LR": "BTCUSD_Linear_Regression",
-        "ARIMA": "BTCUSD_ARIMA_Forecasting"
+        "LR": "BTCUSD_LR_1h",
+        "ARIMA": "BTCUSD_ARIMA_1h"
     }
 
     lr_signals = []
@@ -44,8 +44,9 @@ def roi_index(request):
             seen_minutes = set()
             temp_signals = []
             for run in runs:
-                last_close = run.data.metrics.get('last_close_price')
-                pred_next = run.data.metrics.get('predicted_next_hour_close')
+                # In the new structure, metrics are 'last_record_price' and 'pred_next'
+                last_close = run.data.metrics.get('last_record_price')
+                pred_next = run.data.metrics.get('pred_next')
                 
                 dt = pd.to_datetime(run.info.start_time, unit='ms')
                 time_key = dt.strftime('%Y-%m-%d %H:%M')

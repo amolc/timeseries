@@ -1,102 +1,87 @@
-# BTCUSD RNN Time Series Forecasting Project Plan
+# Market Intelligence Time Series Forecasting
 
-This project aims to build a production-ready Machine Learning pipeline for forecasting BTCUSD prices using Recurrent Neural Networks (RNNs). It incorporates MLOps best practices, including experiment tracking, model registry, CI/CD, drift detection, and business impact analysis through A/B testing and ROI.
+A production-ready Market Intelligence system for forecasting major assets (BTC, GOLD, NIFTY, PAXG, SPX500) using Time Series models (Linear Regression, ARIMA). The project features a full MLOps lifecycle with experiment tracking, automated scheduling, and a comprehensive Django dashboard.
 
-## **Project Overview**
+## **Core Architecture**
 
-Forecasting BTCUSD prices using historical market data with deep learning models (LSTM/GRU). The focus is not just on prediction accuracy but on the end-to-end lifecycle of a machine learning model in a production environment.
+### **1. Forecasting Engine**
+- **Models**: Linear Regression and ARIMA for multiple timeframes (1h, 1d, 1w, 1m).
+- **Features**: Historical OHLCV data with technical indicators (RSI, Moving Averages, etc.).
+- **Asset Coverage**: 
+  - **BTCUSD**: Bitcoin / US Dollar
+  - **GOLD**: Gold / US Dollar (TradingView: GOLD)
+  - **NIFTY**: Nifty 50 Index (NSE: NIFTY)
+  - **PAXUSD**: PAX Gold / USDT (Binance: PAXGUSDT)
+  - **SPX500**: S&P 500 Index (OANDA: SPX500USD)
 
-## **Core Components**
+### **2. MLOps with MLflow**
+- **Centralized Tracking**: All experiments are logged to a central SQLite database (`mlflow.db`).
+- **Metric Tracking**: Logs MSE, MAE, and next-period price predictions (`pred_next`).
+- **Artifact Management**: Stores trained models and diagnostic plots in `mlartifacts/`.
 
-### **1. Time Series Forecasting Models**
-- **Linear Regression**: A simple baseline model predicting future price based on current market features (Close, Volume, Moving Averages).
-- **ARIMA**: AutoRegressive Integrated Moving Average model for univariate time series forecasting.
-- **RNN (Optional)**: LSTM/GRU architectures for capturing complex non-linear dependencies (advanced use case).
-- **Features**: Historical OHLCV (Open, High, Low, Close, Volume), technical indicators (RSI, Moving Averages).
-- **Objective**: Predict the next-period price or price movement direction.
+### **3. Automated Execution (Celery)**
+- **Task Orchestration**: Uses Celery with Redis/RabbitMQ to manage complex task chains.
+- **Sequential Execution**: Ensures assets are processed one-by-one to maintain server stability.
+- **Dynamic Scheduling**:
+  - **Hourly**: 1h data update for all assets.
+  - **Daily**: 1d data update at 00:00 UTC.
+  - **Weekly**: Full system cycle (1h, 1d, 1w, 1m) on Sundays.
 
-### **2. MLflow Experiments & Model Registry**
-- **Experiment Tracking**: Log hyperparameters, metrics (RMSE, MAE), and model artifacts for every run.
-- **Model Registry**: Version control models, transition models through stages (Staging, Production, Archived), and manage model metadata.
-
-### **3. CI/CD for ML (MLOps)**
-- **Continuous Integration (CI)**: Automated testing of data preprocessing scripts, model training code, and unit tests for model architecture.
-- **Continuous Deployment (CD)**: Automatically deploy the best-performing model to a staging or production environment when it passes validation tests.
-- **Pipeline Tools**: GitHub Actions, GitLab CI, or Jenkins.
-
-### **4. Drift Detection & Monitoring**
-- **Data Drift**: Monitor changes in the distribution of input features (e.g., sudden spikes in volatility or volume).
-- **Model Drift**: Detect degradation in model performance (e.g., increasing RMSE) over time.
-- **Tools**: Evidently AI, Alibi Detect, or custom monitoring scripts integrated with Prometheus/Grafana.
-
-### **5. Django Dashboard**
-- **Visualization**: A central hub to visualize model performance, MLflow experiment summaries, and drift detection reports.
-- **A/B Testing Interface**: Manage and monitor live A/B tests between different model versions.
-- **ROI Tracking**: Real-time display of financial impact and ROI based on current market predictions.
-- **Alerting**: Integrated dashboard alerts for data drift or performance drops.
-
-### **6. A/B Testing & ROI Analysis**
-- **A/B Testing**: Compare the performance of the current production model (Control) against a new challenger model (Treatment) in a live or simulated environment.
-- **ROI Analysis**: Quantify the financial impact of the model's predictions (e.g., simulated trading profits, risk reduction) to justify the project's value.
-
-### **7. Automated Scheduler**
-- **Scheduler**: A background process that automatically runs the ML pipeline at regular intervals.
-- **Task**: Retrains models and updates predictions every 15 minutes.
-- **Script**: `tasks.py` handles the scheduling using the `schedule` library.
+### **4. Django Dashboard**
+- **Real-time Monitoring**: Visualizes the latest predictions and model health.
+- **ROI Analysis**: Calculates potential returns based on model signals.
+- **Interactive Graphs**: Plotly-powered charts for historical data and forecasts.
 
 ---
 
-## **How to Run**
+## **Quick Start**
 
-1. **Start MLflow Server**:
+1. **Setup Environment**:
    ```bash
-   ./ml/runmlflow.sh
+   pip install -r requirements.txt
    ```
 
-2. **Start Django Dashboard**:
+2. **Start MLflow Tracking Server**:
    ```bash
-   python3 dashboard/manage.py runserver 0.0.0.0:8000
+   ./runmlflow.sh
    ```
 
-3. **Start Automated Scheduler**:
+3. **Start Celery Worker & Beat**:
    ```bash
-   python3 tasks.py
+   # Terminal 1: Worker (listening to the 'timeseries' queue)
+   celery -A dashboard.timeseries_dashboard worker -Q timeseries --loglevel=info
+   
+   # Terminal 2: Beat
+   celery -A dashboard.timeseries_dashboard beat --loglevel=info
    ```
-   *This will run the pipeline immediately and then every 15 minutes.*
+
+4. **Start Django Dashboard**:
+   ```bash
+   cd dashboard
+   python manage.py runserver 0.0.0.0:8000
+   ```
 
 ---
 
-## **Project Roadmap**
+## **Project Structure**
 
-### **Phase 1: Foundation & Data Engineering**
-- [ ] Set up project structure and environment.
-- [ ] Implement data ingestion from BTCUSD APIs (e.g., Binance, Coinbase).
-- [ ] Perform Exploratory Data Analysis (EDA) and feature engineering.
-
-### **Phase 2: Modeling & MLflow Integration**
-- [] Develop Linear Regression model (`src/models/linear_regression.py`).
-- [] Develop ARIMA model (`src/models/arima_model.py`).
-- [ ] (Optional) Develop RNN model (LSTM/GRU).
-- [ ] Integrate MLflow for experiment tracking.
-- [ ] Implement a basic training pipeline.
-
-### **Phase 3: Django Dashboard & Model Registry**
-- [ ] Set up MLflow Model Registry.
-- [ ] Initialize Django project and set up basic dashboard UI.
-- [ ] Create a deployment script (e.g., FastAPI/Django-integrated REST API).
-- [ ] Implement basic CI/CD for model training and deployment.
-
-### **Phase 4: Monitoring & Drift Detection**
-- [ ] Implement data and model drift detection using Evidently AI.
-- [ ] Integrate monitoring reports into the Django Dashboard.
-- [ ] Set up automated alerts for performance degradation.
-
-### **Phase 5: Business Impact & A/B Testing**
-- [ ] Design and implement an A/B testing framework within Django.
-- [ ] Develop ROI calculation logic and display on dashboard.
-- [ ] Final project documentation and visualization.
+- `btcusd/`, `gold/`, `nifty/`, `paxusd/`, `spx500/`: Individual asset apps with data ingestion and modeling logic.
+- `dashboard/`: Django project containing the monitoring and ROI modules.
+- `tasks.py`: Celery task definitions and orchestration logic.
+- `mlflow.db`: Centralized experiment database.
+- `mlartifacts/`: Model storage.
 
 ---
+
+## **Audit & Optimization Status**
+- [x] Standardized pipeline structures across all assets.
+- [x] Centralized MLflow configuration (SQLite).
+- [x] Implemented sequential Celery task chaining.
+- [x] Removed redundant legacy code and empty apps.
+- [x] Updated documentation and execution scripts.
+
+---
+*This project is a critical lifeline for financial forecasting and is built with scalability and reliability as core principles.*
 
 ## **Proposed Project Structure**
 

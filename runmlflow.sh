@@ -3,7 +3,10 @@ set -euo pipefail
 
 PORT="${MLFLOW_PORT:-5001}"
 HOST="${MLFLOW_HOST:-0.0.0.0}"
-BACKEND_STORE_URI="${MLFLOW_BACKEND_STORE_URI:-./ml/mlruns}"
+# Use the central sqlite DB in the project root
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_STORE_URI="sqlite:///${PROJECT_ROOT}/mlflow.db"
+DEFAULT_ARTIFACT_ROOT="${PROJECT_ROOT}/mlartifacts"
 
 kill_port() {
   local port="$1"
@@ -35,14 +38,18 @@ kill_port() {
   kill -KILL ${pids} 2>/dev/null || true
 }
 
-mkdir -p "${BACKEND_STORE_URI}"
+mkdir -p "${PROJECT_ROOT}/mlartifacts"
 
 kill_port "${PORT}"
 
 echo "Starting MLflow server on http://${HOST}:${PORT}"
+echo "Using Backend Store: ${BACKEND_STORE_URI}"
+echo "Using Artifact Root: ${DEFAULT_ARTIFACT_ROOT}"
+
 exec python3 -m mlflow server \
   --host "${HOST}" \
   --port "${PORT}" \
   --backend-store-uri "${BACKEND_STORE_URI}" \
+  --default-artifact-root "${DEFAULT_ARTIFACT_ROOT}" \
   --allowed-hosts "*" \
   --cors-allowed-origins "*"

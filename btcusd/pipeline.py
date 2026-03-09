@@ -14,22 +14,24 @@ from data.ingestion import collect_all_intervals
 from models.linear_regression import train_linear_regression
 from models.arima_model import train_arima_model
 
-def run_full_pipeline(skip_ingestion=False, models=("lr", "arima")):
+def run_full_pipeline(skip_ingestion=False, models=("lr", "arima"), interval_filter=None):
     """
-    Main pipeline entry point for all BTCUSD intervals (1h, 1d, 1w, 1m).
+    Main pipeline entry point for BTCUSD intervals (1h, 1d, 1w, 1m).
+    If interval_filter is provided, only that interval is processed.
     """
+    intervals = [interval_filter] if interval_filter else ["1h", "1d", "1w", "1m"]
+
     if not skip_ingestion:
-        print("Starting data ingestion for all intervals...")
+        print(f"Starting BTCUSD data ingestion for intervals: {intervals}...")
         results = collect_all_intervals()
         if not results:
             print("Ingestion failed to produce data.")
             return
     
-    intervals = ["1h", "1d", "1w", "1m"]
     pipeline_results = {}
     
     for interval in intervals:
-        print(f"\n--- Running models for {interval} interval ---")
+        print(f"\n--- Running models for BTCUSD {interval} interval ---")
         interval_results = {}
         
         if "lr" in models:
@@ -46,16 +48,17 @@ def run_full_pipeline(skip_ingestion=False, models=("lr", "arima")):
         
         pipeline_results[interval] = interval_results
     
-    print("\nFull Pipeline execution complete.")
+    print(f"\nBTCUSD Pipeline execution complete for {intervals}.")
     return pipeline_results
 
 def parse_args():
     p = argparse.ArgumentParser(description="End-to-end multi-interval BTCUSD pipeline")
     p.add_argument("--skip-ingestion", action="store_true", help="Skip data download/preprocess")
     p.add_argument("--models", type=str, default="lr,arima", help="Comma-separated: lr, arima")
+    p.add_argument("--interval", type=str, help="Specific interval to run (1h, 1d, 1w, 1m)")
     return p.parse_args()
 
 if __name__ == "__main__":
     args = parse_args()
     models = tuple(m.strip() for m in args.models.split(",") if m.strip())
-    run_full_pipeline(skip_ingestion=args.skip_ingestion, models=models)
+    run_full_pipeline(skip_ingestion=args.skip_ingestion, models=models, interval_filter=args.interval)
