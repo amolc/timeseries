@@ -14,4 +14,4 @@ cd "$PROJECT_ROOT/dashboard"
 
 echo "Starting Celery Beat..."
 # Run the beat scheduler process
-celery -A timeseries_dashboard beat --loglevel=info
+celery -A timeseries_dashboard beat --loglevel=info --schedule /tmp/timeseries-celerybeat-schedule

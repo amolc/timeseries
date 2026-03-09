@@ -14,4 +14,4 @@ cd "$PROJECT_ROOT/dashboard"
 
 echo "Starting Celery Worker..."
 # Run the worker process
-celery -A timeseries_dashboard worker --loglevel=info
+celery -A timeseries_dashboard worker --loglevel=info -Q timeseries -I tasks -n timeseries-worker@%h
