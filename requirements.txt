@@ -12,6 +12,7 @@ tensorflow
 mlflow
 yfinance
 pandas_ta
+git+https://github.com/rongardF/tvdatafeed.git
 
 # Monitoring & Visualization
 evidently
@@ -25,3 +26,4 @@ uvicorn
 whitenoise
 celery
 redis
+channels

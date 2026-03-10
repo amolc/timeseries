@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 def get_landing_assets_data():
     """
-    Fetches 3-month data for BTC, GOLD, SPX500, and NIFTY.
+    Fetches 3-month data for tracked assets.
     Returns a dictionary of dataframes.
     """
     assets = {
@@ -12,7 +12,8 @@ def get_landing_assets_data():
         'PAXUSD': 'PAXG-USD',
         'SPX500': '^GSPC',
         'GOLD': 'GC=F',
-        'NIFTY': '^NSEI'
+        'NIFTY': '^NSEI',
+        'USOIL': 'CL=F',
     }
     
     data_results = {}

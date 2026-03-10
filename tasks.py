@@ -16,7 +16,8 @@ PIPELINES = {
     "GOLD": os.path.join(PROJECT_ROOT, "gold", "pipeline.py"),
     "NIFTY": os.path.join(PROJECT_ROOT, "nifty", "pipeline.py"),
     "PAXUSD": os.path.join(PROJECT_ROOT, "paxusd", "pipeline.py"),
-    "SPX500": os.path.join(PROJECT_ROOT, "spx500", "pipeline.py")
+    "SPX500": os.path.join(PROJECT_ROOT, "spx500", "pipeline.py"),
+    "USOIL": os.path.join(PROJECT_ROOT, "usoil", "pipeline.py"),
 }
 
 @shared_task(name="tasks.run_asset_pipeline")
@@ -66,7 +67,8 @@ def run_interval_batch(interval):
         run_asset_pipeline.si("GOLD", interval),
         run_asset_pipeline.si("NIFTY", interval),
         run_asset_pipeline.si("PAXUSD", interval),
-        run_asset_pipeline.si("SPX500", interval)
+        run_asset_pipeline.si("SPX500", interval),
+        run_asset_pipeline.si("USOIL", interval),
     )
     return c.apply_async()
 

@@ -36,10 +36,15 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['forecast.quantbots.co', 'localhost', '127.0.0.1', '*']
 
+# Trust HTTPS scheme from reverse proxy (required for secure URL generation and ws/wss handling).
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+
 
 # Application definition
 
 INSTALLED_APPS = [
+    'channels',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -56,6 +61,7 @@ INSTALLED_APPS = [
     'spx500',
     'gold',
     'nifty',
+    'usoil',
 ]
 
 MIDDLEWARE = [
@@ -86,6 +92,13 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'timeseries_dashboard.wsgi.application'
+ASGI_APPLICATION = 'timeseries_dashboard.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    }
+}
 
 
 # Database
