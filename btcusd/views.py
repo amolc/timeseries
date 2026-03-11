@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import os
 import mlflow
+from mlflow.tracking import MlflowClient
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 MLFLOW_DB_PATH = PROJECT_ROOT / "mlflow.db"
@@ -48,13 +49,20 @@ def btcusd_dashboard(request):
     context = {
         'asset_name': 'BTCUSD',
         'intervals': ['1h', '1d', '1w', '1m'],
-        'predictions': {},
+        'predictions_lr': {},
+        'predictions_arima': {},
+        'running_signal_label': 'N/A',
+        'running_signal_class': 'secondary',
+        'running_call_value': 'N/A',
+        'running_call_time': 'N/A',
+        'running_profit': 'N/A',
+        'running_profit_class': 'secondary',
     }
     
     # Fetch predictions for each interval from MLflow
-    from mlflow.tracking import MlflowClient
     client = MlflowClient()
     
+    latest_call = None
     for interval in context['intervals']:
         exp_name = f"BTCUSD_LR_{interval}"
         experiment = client.get_experiment_by_name(exp_name)
@@ -71,7 +79,35 @@ def btcusd_dashboard(request):
                 if pred and last_close:
                     change = pred - last_close
                     pct = (change / last_close) * 100
-                    context['predictions'][interval] = {
+                    context['predictions_lr'][interval] = {
+                        'price': f"{pred:,.2f}",
+                        'change': f"{change:+,.2f}",
+                        'pct': f"{pct:+.2f}%",
+                        'is_positive': change >= 0
+                    }
+                    if interval == "1h":
+                        latest_call = {
+                            "side": "BUY" if pred > last_close else "SELL",
+                            "trigger_price": float(last_close),
+                            "trigger_time": run.data.params.get("last_record_time", "N/A"),
+                        }
+
+        exp_name = f"BTCUSD_ARIMA_{interval}"
+        experiment = client.get_experiment_by_name(exp_name)
+        if experiment:
+            runs = client.search_runs(
+                experiment_ids=[experiment.experiment_id],
+                order_by=["attributes.start_time DESC"],
+                max_results=1
+            )
+            if runs:
+                run = runs[0]
+                pred = _get_predicted_price(run)
+                last_close = _get_last_close_price(run)
+                if pred and last_close:
+                    change = pred - last_close
+                    pct = (change / last_close) * 100
+                    context['predictions_arima'][interval] = {
                         'price': f"{pred:,.2f}",
                         'change': f"{change:+,.2f}",
                         'pct': f"{pct:+.2f}%",
@@ -91,6 +127,24 @@ def btcusd_dashboard(request):
             'pct_change': f"{pct_change:+.2f}%",
             'is_positive': price_change >= 0,
         })
+        if latest_call:
+            context["running_call_value"] = f"{latest_call['trigger_price']:,.2f}"
+            context["running_call_time"] = latest_call["trigger_time"]
+            context["running_signal_label"] = f"{latest_call['side']} (Live)"
+            context["running_signal_class"] = "success" if latest_call["side"] == "BUY" else "danger"
+            running_pnl = (
+                latest_price - latest_call["trigger_price"]
+                if latest_call["side"] == "BUY"
+                else latest_call["trigger_price"] - latest_price
+            )
+            if running_pnl > 0:
+                pnl_class = "success"
+            elif running_pnl < 0:
+                pnl_class = "danger"
+            else:
+                pnl_class = "secondary"
+            context["running_profit"] = f"{running_pnl:+,.2f}"
+            context["running_profit_class"] = pnl_class
         
         # Create a simple interactive graph
         fig = go.Figure()
@@ -131,7 +185,7 @@ def interval_detail(request, interval):
         
         # Get Forecast from MLflow
         try:
-            client = mlflow.tracking.MlflowClient()
+            client = MlflowClient()
             experiment = client.get_experiment_by_name(f"BTCUSD_LR_{interval}")
             if experiment:
                 runs = client.search_runs(
@@ -173,7 +227,7 @@ def interval_detail(request, interval):
         
         # Real ROI & Model Comparison (LR vs ARIMA)
         try:
-            client = mlflow.tracking.MlflowClient()
+            client = MlflowClient()
             experiments = {
                 "LR": f"BTCUSD_LR_{interval}",
                 "ARIMA": f"BTCUSD_ARIMA_{interval}"
