@@ -134,7 +134,7 @@
         <div class="row g-3 mb-4">
             {% for intv in intervals %}
             <div class="col-md-3">
-                <a href="{% url 'nifty:interval_detail' intv %}" class="text-decoration-none">
+                <a href="{% url 'nifty:interval_detail_lr' intv %}" class="text-decoration-none">
                     <div class="stat-card p-3" style="border-left: 4px solid var(--nifty-orange); transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <span class="fw-bold uppercase" style="font-size: 0.8rem; color: var(--nifty-orange);">{{ intv|upper }} AI TARGET</span>
@@ -167,7 +167,7 @@
         <div class="row">
             {% for interval in intervals %}
             <div class="col-md-3 mb-4">
-                <a href="{% url 'nifty:interval_detail' interval %}" class="interval-card">
+                <a href="{% url 'nifty:interval_detail_lr' intv %}" class="interval-card">
                     <div class="interval-label">{{ interval|upper }}</div>
                     <div class="text-muted small">View Details →</div>
                 </a>

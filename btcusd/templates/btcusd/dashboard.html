@@ -189,7 +189,7 @@
             <div class="row g-3">
                 {% for intv in intervals %}
                 <div class="col-md-3">
-                    <a href="{% url 'btcusd:interval_detail' intv %}" class="text-decoration-none">
+                    <a href="{% url 'btcusd:interval_detail_lr' intv %}" class="text-decoration-none">
                         <div class="target-card" style="border-color: rgba(247,147,26,0.6);">
                             <div class="target-header">
                                 <span class="target-label" style="color: var(--btc-orange);">{{ intv|upper }} AI TARGET</span>
@@ -230,7 +230,7 @@
             <div class="row g-3">
                 {% for intv in intervals %}
                 <div class="col-md-3">
-                    <a href="{% url 'btcusd:interval_detail' intv %}" class="text-decoration-none">
+                    <a href="{% url 'btcusd:interval_detail_arima' intv %}" class="text-decoration-none">
                         <div class="target-card" style="border-color: rgba(59,130,246,0.6);">
                             <div class="target-header">
                                 <span class="target-label" style="color: var(--arima-blue);">{{ intv|upper }} ARIMA TARGET</span>

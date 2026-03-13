@@ -306,9 +306,8 @@ def last_price_api(request):
     return JsonResponse(response, status=status)
 
 
-def interval_detail(request, interval):
-    """Detailed page for a specific interval (1h, 1d, 1w, 1m)."""
-    selected_raw = (request.GET.get("model") or "ALL").strip().upper()
+def _interval_detail(request, interval, model_override=None):
+    selected_raw = (model_override or request.GET.get("model") or "ALL").strip().upper()
     if selected_raw in ("LINEAR", "LINEAR_REGRESSION"):
         selected_raw = "LR"
     selected_model = selected_raw if selected_raw in {"ALL", "LR", "ARIMA"} else "ALL"
@@ -403,7 +402,8 @@ def interval_detail(request, interval):
     context["chart_html"] = pio.to_html(fig, full_html=False)
 
     try:
-        client = mlflow.tracking.MlflowClient()
+        from mlflow.tracking import MlflowClient
+        client = MlflowClient()
         experiments = {
             "LR": f"USOIL_LR_{interval}",
             "ARIMA": f"USOIL_ARIMA_{interval}",
@@ -694,3 +694,15 @@ def interval_detail(request, interval):
         print(f"Error fetching ROI data: {e}")
 
     return render(request, "usoil/interval_detail.html", context)
+
+
+def interval_detail(request, interval):
+    return _interval_detail(request, interval)
+
+
+def interval_detail_lr(request, interval):
+    return _interval_detail(request, interval, "LR")
+
+
+def interval_detail_arima(request, interval):
+    return _interval_detail(request, interval, "ARIMA")

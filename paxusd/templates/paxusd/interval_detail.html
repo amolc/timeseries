@@ -121,6 +121,11 @@
             <div class="col-md-8">
                 <h1 class="fw-800">{{ asset_name }} <span style="color: #7d8ca4">|</span> {{ interval|upper }} Interval</h1>
                 <p class="text-muted">Comprehensive technical analysis and performance metrics</p>
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    <span class="fw-bold uppercase" style="font-size: 0.8rem; color: var(--pax-gold);">SELECT MODEL</span>
+                    <a href="{% url 'paxusd:interval_detail_lr' interval %}" class="btn btn-sm btn-outline-warning{% if selected_model == 'LR' %} active{% endif %}">Linear Regression</a>
+                    <a href="{% url 'paxusd:interval_detail_arima' interval %}" class="btn btn-sm btn-outline-primary{% if selected_model == 'ARIMA' %} active{% endif %}">ARIMA Forecasting</a>
+                </div>
             </div>
             <div class="col-md-4 text-md-end">
                 <div class="text-muted small">LATEST PRICE</div>
@@ -139,7 +144,7 @@
                 <div class="forecast-box mb-4">
                     <div class="analytics-label">Predicted Next Close</div>
                     <div class="forecast-value">${{ forecast_price }}</div>
-                    <div class="text-muted small mt-2">Model: Linear Regression</div>
+                    <div class="text-muted small mt-2">Model: {{ selected_model_label }}</div>
                     <div class="text-muted x-small mt-1">Based on: {{ last_run_time }}</div>
                 </div>
                 
@@ -193,6 +198,7 @@
         <!-- New Model Comparison Section -->
         <h3 class="mt-5 mb-4">Model Performance & Signal Comparison</h3>
         <div class="row g-4">
+            {% if selected_model == 'LR' and comparison.LR %}
             <!-- Linear Regression Column -->
             <div class="col-lg-6">
                 <div class="analytics-card border-success" style="border-width: 2px;">
@@ -232,6 +238,7 @@
                     </div>
                 </div>
             </div>
+            {% elif selected_model == 'ARIMA' and comparison.ARIMA %}
 
             <!-- ARIMA Column -->
             <div class="col-lg-6">
@@ -272,6 +279,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
         </div>
 
         <!-- ROI Simulation Note -->

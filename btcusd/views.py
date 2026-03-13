@@ -165,15 +165,19 @@ def btcusd_dashboard(request):
     
     return render(request, 'btcusd/dashboard.html', context)
 
-def interval_detail(request, interval):
-    """Detailed page for a specific interval (1h, 1d, 1w, 1m)."""
+def _interval_detail(request, interval, model_key):
     processed_file = PROJECT_ROOT / "btcusd" / "data" / "processed" / f"btcusd_{interval}_processed.csv"
+    normalized_model = model_key.upper()
+    selected_model = normalized_model if normalized_model in {"LR", "ARIMA"} else "LR"
+    selected_model_label = "Linear Regression" if selected_model == "LR" else "ARIMA"
     
     context = {
         'interval': interval,
         'asset_name': 'BTCUSD',
         'forecast_price': "N/A",
         'last_run_time': 'N/A',
+        'selected_model': selected_model,
+        'selected_model_label': selected_model_label,
     }
     
     if processed_file.exists():
@@ -186,7 +190,7 @@ def interval_detail(request, interval):
         # Get Forecast from MLflow
         try:
             client = MlflowClient()
-            experiment = client.get_experiment_by_name(f"BTCUSD_LR_{interval}")
+            experiment = client.get_experiment_by_name(f"BTCUSD_{selected_model}_{interval}")
             if experiment:
                 runs = client.search_runs(
                     experiment_ids=[experiment.experiment_id],
@@ -299,15 +303,30 @@ def interval_detail(request, interval):
                         'signals': signals[:5] # Show last 5
                     }
             
-            context['comparison'] = comparison_data
+            if selected_model in comparison_data:
+                context['comparison'] = {selected_model: comparison_data[selected_model]}
+            else:
+                context['comparison'] = {}
             
             # Update summary stats with real data if available
-            if 'LR' in comparison_data:
-                context['roi_estimate'] = f"{comparison_data['LR']['win_rate']} Win Rate"
-                context['ab_test_result'] = f"LR ({comparison_data['LR']['profit']} pts) vs ARIMA ({comparison_data.get('ARIMA', {}).get('profit', 'N/A')} pts)"
+            if selected_model in comparison_data:
+                context['roi_estimate'] = f"{comparison_data[selected_model]['win_rate']} Win Rate"
+                context['ab_test_result'] = f"{selected_model} ({comparison_data[selected_model]['profit']} pts)"
 
         except Exception as e:
             print(f"Error fetching ROI data: {e}")
             context['comparison'] = {}
 
     return render(request, 'btcusd/interval_detail.html', context)
+
+
+def interval_detail(request, interval):
+    return _interval_detail(request, interval, "LR")
+
+
+def interval_detail_lr(request, interval):
+    return _interval_detail(request, interval, "LR")
+
+
+def interval_detail_arima(request, interval):
+    return _interval_detail(request, interval, "ARIMA")

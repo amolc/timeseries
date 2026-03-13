@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ asset_name }} {{ interval|upper }} Detail | Quantbots Intelligence</title>
+    <title>{{ asset_name }} {{ interval|upper }} {{ selected_model_label }} Detail | Quantbots Intelligence</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -121,6 +121,11 @@
             <div class="col-md-8">
                 <h1 class="fw-800">{{ asset_name }} <span style="color: #7d8ca4">|</span> {{ interval|upper }} Interval</h1>
                 <p class="text-muted">Comprehensive technical analysis and performance metrics</p>
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    <span class="text-muted small">MODEL:</span>
+                    <a href="{% url 'btcusd:interval_detail_lr' interval %}" class="btn btn-sm btn-outline-light {% if selected_model == 'LR' %}active{% endif %}">Linear</a>
+                    <a href="{% url 'btcusd:interval_detail_arima' interval %}" class="btn btn-sm btn-outline-light {% if selected_model == 'ARIMA' %}active{% endif %}">ARIMA</a>
+                </div>
             </div>
             <div class="col-md-4 text-md-end">
                 <div class="text-muted small">LATEST PRICE</div>
@@ -139,7 +144,7 @@
                 <div class="forecast-box mb-4">
                     <div class="analytics-label">Predicted Next Close</div>
                     <div class="forecast-value">${{ forecast_price }}</div>
-                    <div class="text-muted small mt-2">Model: Linear Regression</div>
+                    <div class="text-muted small mt-2">Model: {{ selected_model_label }}</div>
                     <div class="text-muted x-small mt-1">Based on: {{ last_run_time }}</div>
                 </div>
                 
@@ -191,9 +196,9 @@
         </div>
 
         <!-- New Model Comparison Section -->
-        <h3 class="mt-5 mb-4">Model Performance & Signal Comparison</h3>
+        <h3 class="mt-5 mb-4">{{ selected_model_label }} Performance & Signal History</h3>
         <div class="row g-4">
-            <!-- Linear Regression Column -->
+            {% if comparison.LR %}
             <div class="col-lg-6">
                 <div class="analytics-card border-success" style="border-width: 2px;">
                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -232,8 +237,9 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
 
-            <!-- ARIMA Column -->
+            {% if comparison.ARIMA %}
             <div class="col-lg-6">
                 <div class="analytics-card border-primary" style="border-width: 2px;">
                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -272,6 +278,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
         </div>
 
         <!-- ROI Simulation Note -->

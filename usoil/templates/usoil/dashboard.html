@@ -161,7 +161,7 @@
         <div class="row g-3 mb-4">
             {% for intv in intervals %}
             <div class="col-md-3">
-                <a href="{% url 'usoil:interval_detail' intv %}?model=LR" class="text-decoration-none">
+                <a href="{% url 'usoil:interval_detail_lr' intv %}" class="text-decoration-none">
                     <div class="stat-card p-3" style="border-left: 4px solid var(--linear-color); transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <span class="fw-bold uppercase" style="font-size: 0.8rem; color: var(--linear-color);">{{ intv|upper }} AI TARGET</span>
@@ -211,7 +211,7 @@
         <div class="row g-3 mb-4">
             {% for intv in intervals %}
             <div class="col-md-3">
-                <a href="{% url 'usoil:interval_detail' intv %}?model=ARIMA" class="text-decoration-none">
+                <a href="{% url 'usoil:interval_detail_arima' intv %}" class="text-decoration-none">
                     <div class="stat-card p-3" style="border-left: 4px solid var(--arima-color); transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <span class="fw-bold uppercase" style="font-size: 0.8rem; color: var(--arima-color);">{{ intv|upper }} ARIMA TARGET</span>

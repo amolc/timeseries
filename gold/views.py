@@ -110,16 +110,19 @@ def gold_dashboard(request):
     
     return render(request, 'gold/dashboard.html', context)
 
-def interval_detail(request, interval):
-    """Detailed page for a specific interval (1h, 1d, 1w, 1m)."""
+def _interval_detail(request, interval, model_key):
     processed_file = PROJECT_ROOT / "gold" / "data" / "processed" / f"gold_{interval}_processed.csv"
+    normalized_model = model_key.upper()
+    selected_model = normalized_model if normalized_model in {"LR", "ARIMA"} else "LR"
+    selected_model_label = "Linear Regression" if selected_model == "LR" else "ARIMA"
     
     context = {
         'interval': interval,
         'asset_name': 'Gold',
-        'forecast_price_lr': "N/A",
-        'forecast_price_arima': "N/A",
+        'forecast_price': "N/A",
         'last_run_time': 'N/A',
+        'selected_model': selected_model,
+        'selected_model_label': selected_model_label,
     }
     
     if processed_file.exists():
@@ -182,14 +185,14 @@ def interval_detail(request, interval):
                         'signals': processed_signals
                     }
 
-                    if temp_signals:
-                        if model_key == "LR":
-                            context['forecast_price_lr'] = f"{temp_signals[0]['pred_next']:,.2f}"
-                            context['last_run_time'] = temp_signals[0]['time']
-                        elif model_key == "ARIMA":
-                            context['forecast_price_arima'] = f"{temp_signals[0]['pred_next']:,.2f}"
+                    if temp_signals and model_key == selected_model:
+                        context['forecast_price'] = f"{temp_signals[0]['pred_next']:,.2f}"
+                        context['last_run_time'] = temp_signals[0]['time']
             
-            context['comparison'] = comparison_data
+            if selected_model in comparison_data:
+                context['comparison'] = {selected_model: comparison_data[selected_model]}
+            else:
+                context['comparison'] = {}
             
         except Exception as e:
             print(f"Error fetching forecast: {e}")
@@ -225,5 +228,21 @@ def interval_detail(request, interval):
             'ab_test_result': 'LR +2% vs ARIMA',
             'roi_estimate': '+8.4%',
         })
+        if context.get('comparison'):
+            selected_data = list(context['comparison'].values())[0]
+            context['roi_estimate'] = f"{selected_data['win_rate']} Win Rate"
+            context['ab_test_result'] = f"{selected_model} ({selected_data['profit']} pts)"
     
     return render(request, 'gold/interval_detail.html', context)
+
+
+def interval_detail(request, interval):
+    return _interval_detail(request, interval, "LR")
+
+
+def interval_detail_lr(request, interval):
+    return _interval_detail(request, interval, "LR")
+
+
+def interval_detail_arima(request, interval):
+    return _interval_detail(request, interval, "ARIMA")

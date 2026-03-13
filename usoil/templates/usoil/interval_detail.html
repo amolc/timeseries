@@ -179,8 +179,8 @@
             <div class="col-lg-6">
                 <div class="d-flex flex-wrap gap-2 align-items-center switcher">
                     <span class="text-muted small me-2">MODEL:</span>
-                    <a href="{% url 'usoil:interval_detail' interval %}?model=LR" class="btn btn-sm btn-outline-light model-lr {% if selected_model == 'LR' %}active{% endif %}">Linear</a>
-                    <a href="{% url 'usoil:interval_detail' interval %}?model=ARIMA" class="btn btn-sm btn-outline-light model-arima {% if selected_model == 'ARIMA' %}active{% endif %}">ARIMA</a>
+                    <a href="{% url 'usoil:interval_detail_lr' interval %}" class="btn btn-sm btn-outline-light model-lr {% if selected_model == 'LR' %}active{% endif %}">Linear</a>
+                    <a href="{% url 'usoil:interval_detail_arima' interval %}" class="btn btn-sm btn-outline-light model-arima {% if selected_model == 'ARIMA' %}active{% endif %}">ARIMA</a>
                     <a href="{% url 'usoil:interval_detail' interval %}?model=ALL" class="btn btn-sm btn-outline-light model-all {% if selected_model == 'ALL' %}active{% endif %}">Compare</a>
                 </div>
             </div>
@@ -188,7 +188,13 @@
                 <div class="d-flex flex-wrap gap-2 align-items-center justify-content-lg-end">
                     <span class="text-muted small me-2">TIMELINE:</span>
                     {% for intv in available_intervals %}
-                    <a href="{% url 'usoil:interval_detail' intv %}?model={{ selected_model }}" class="btn btn-sm timeline-pill {% if intv == interval %}active{% endif %}">{{ intv|upper }}</a>
+                    {% if selected_model == 'LR' %}
+                    <a href="{% url 'usoil:interval_detail_lr' intv %}" class="btn btn-sm timeline-pill {% if intv == interval %}active{% endif %}">{{ intv|upper }}</a>
+                    {% elif selected_model == 'ARIMA' %}
+                    <a href="{% url 'usoil:interval_detail_arima' intv %}" class="btn btn-sm timeline-pill {% if intv == interval %}active{% endif %}">{{ intv|upper }}</a>
+                    {% else %}
+                    <a href="{% url 'usoil:interval_detail' intv %}?model=ALL" class="btn btn-sm timeline-pill {% if intv == interval %}active{% endif %}">{{ intv|upper }}</a>
+                    {% endif %}
                     {% endfor %}
                 </div>
             </div>
