@@ -4,6 +4,7 @@ import pathlib
 import plotly.graph_objects as go
 import plotly.io as pio
 import os
+from datetime import datetime, timezone
 import mlflow
 from mlflow.tracking import MlflowClient
 
@@ -40,6 +41,13 @@ def _get_last_close_price(run):
         return float(raw)
     except (TypeError, ValueError):
         return None
+
+
+def _fmt_run_timestamp(ms):
+    if not ms:
+        return "N/A"
+    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
 
 def btcusd_dashboard(request):
     """Main BTCUSD Dashboard with interval selection cards and top predictions."""
@@ -178,6 +186,7 @@ def _interval_detail(request, interval, model_key):
         'last_run_time': 'N/A',
         'selected_model': selected_model,
         'selected_model_label': selected_model_label,
+        'completed_runs': [],
     }
     
     if processed_file.exists():
@@ -195,7 +204,7 @@ def _interval_detail(request, interval, model_key):
                 runs = client.search_runs(
                     experiment_ids=[experiment.experiment_id],
                     order_by=["attributes.start_time DESC"],
-                    max_results=1
+                    max_results=20
                 )
                 if runs:
                     latest_run = runs[0]
@@ -203,6 +212,27 @@ def _interval_detail(request, interval, model_key):
                     if pred_value is not None:
                         context['forecast_price'] = f"{pred_value:,.2f}"
                     context['last_run_time'] = latest_run.data.params.get('last_record_time', 'N/A')
+
+                    for run in runs:
+                        if (run.info.status or "").upper() != "FINISHED":
+                            continue
+
+                        run_pred = _get_predicted_price(run)
+                        run_last_close = _get_last_close_price(run)
+                        metrics = run.data.metrics
+                        mae_value = metrics.get("mae")
+                        mse_value = metrics.get("mse")
+                        context["completed_runs"].append({
+                            "run_id": run.info.run_id,
+                            "start_time": _fmt_run_timestamp(run.info.start_time),
+                            "end_time": _fmt_run_timestamp(run.info.end_time),
+                            "status": run.info.status,
+                            "last_record_time": run.data.params.get("last_record_time", "N/A"),
+                            "last_close_price": f"{run_last_close:,.2f}" if run_last_close is not None else "N/A",
+                            "predicted_price": f"{run_pred:,.2f}" if run_pred is not None else "N/A",
+                            "mse": f"{mse_value:,.2f}" if mse_value is not None else "N/A",
+                            "mae": f"{mae_value:,.2f}" if mae_value is not None else "N/A",
+                        })
         except Exception as e:
             print(f"Error fetching forecast: {e}")
 
