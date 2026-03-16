@@ -5,7 +5,7 @@ app_name = 'paxusd'
 
 urlpatterns = [
     path('', views.paxusd_dashboard, name='dashboard'),
+    path('api/last_price/', views.last_price_api, name='last_price_api'),
     path('interval/<str:interval>/', views.interval_detail, name='interval_detail'),
-    path('interval/<str:interval>/lr/', views.interval_detail_lr, name='interval_detail_lr'),
     path('interval/<str:interval>/arima/', views.interval_detail_arima, name='interval_detail_arima'),
 ]

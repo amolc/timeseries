@@ -131,7 +131,6 @@ def usoil_dashboard(request):
     context = {
         'asset_name': 'USOIL',
         'intervals': ['1h', '1d', '1w', '1m'],
-        'predictions_lr': {},
         'predictions_arima': {},
         'latest_price': "N/A",
         'latest_price_as_of': "N/A",
@@ -158,9 +157,9 @@ def usoil_dashboard(request):
         except (TypeError, ValueError):
             latest_price = None
 
-    # Pick the latest active call from 1h LR/ARIMA runs (whichever is newest).
+    # Pick the latest active call from 1h ARIMA runs.
     latest_call = None
-    for exp_name in ("USOIL_LR_1h", "USOIL_ARIMA_1h"):
+    for exp_name in ("USOIL_ARIMA_1h",):
         exp = client.get_experiment_by_name(exp_name)
         if not exp:
             continue
@@ -207,9 +206,6 @@ def usoil_dashboard(request):
             context["running_profit"] = f"{running_pnl:+,.2f}"
             context["running_profit_class"] = pnl_class
 
-    context['predictions_lr'] = _get_interval_predictions(
-        client, "USOIL", "LR", context['intervals'], latest_price=latest_price
-    )
     context['predictions_arima'] = _get_interval_predictions(
         client, "USOIL", "ARIMA", context['intervals'], latest_price=latest_price
     )
@@ -246,9 +242,6 @@ def usoil_dashboard(request):
         context['graph_html'] = pio.to_html(fig, full_html=False)
 
     # Ensure per-interval card running P/L uses the best available latest price (live or fallback).
-    context['predictions_lr'] = _get_interval_predictions(
-        client, "USOIL", "LR", context['intervals'], latest_price=latest_price
-    )
     context['predictions_arima'] = _get_interval_predictions(
         client, "USOIL", "ARIMA", context['intervals'], latest_price=latest_price
     )
@@ -258,12 +251,12 @@ def usoil_dashboard(request):
     asset_for_meta = context.get("asset_name", "Asset")
     seo_title = f"{asset_for_meta} Dashboard | Intelligence.quantbots.co"
     seo_description = (
-        f"Live {asset_for_meta} machine learning dashboard with Linear Regression and ARIMA forecasts, "
+        f"Live {asset_for_meta} machine learning dashboard with ARIMA forecasts, "
         "real-time signal tracking, running P/L, and multi-timeframe market intelligence."
     )
     seo_keywords = (
         f"{asset_for_meta.lower()} forecast, {asset_for_meta.lower()} trading signals, machine learning finance, "
-        "quantitative trading, ARIMA prediction, linear regression forecast, algorithmic market intelligence"
+        "quantitative trading, ARIMA prediction, algorithmic market intelligence"
     )
     current_iso = django_timezone.now().replace(microsecond=0).isoformat()
 
@@ -312,16 +305,9 @@ def last_price_api(request):
     return JsonResponse(response, status=status)
 
 
-def _interval_detail(request, interval, model_override=None):
-    selected_raw = (model_override or request.GET.get("model") or "ALL").strip().upper()
-    if selected_raw in ("LINEAR", "LINEAR_REGRESSION"):
-        selected_raw = "LR"
-    selected_model = selected_raw if selected_raw in {"ALL", "LR", "ARIMA"} else "ALL"
-    selected_model_label = {
-        "ALL": "All Models",
-        "LR": "Linear Regression",
-        "ARIMA": "ARIMA",
-    }[selected_model]
+def _interval_detail(request, interval, model_override="ARIMA"):
+    selected_model = "ARIMA"
+    selected_model_label = "ARIMA"
 
     processed_file = PROJECT_ROOT / "usoil" / "data" / "processed" / f"usoil_{interval}_processed.csv"
     context = {
@@ -412,12 +398,10 @@ def _interval_detail(request, interval, model_override=None):
         from mlflow.tracking import MlflowClient
         client = MlflowClient()
         experiments = {
-            "LR": f"USOIL_LR_{interval}",
             "ARIMA": f"USOIL_ARIMA_{interval}",
         }
 
         comparison_data = {
-            "LR": {"profit": "N/A", "win_rate": "N/A", "signals": [], "changeover_signals": [], "runs": [], "run_count": 0, "curve": []},
             "ARIMA": {"profit": "N/A", "win_rate": "N/A", "signals": [], "changeover_signals": [], "runs": [], "run_count": 0, "curve": []},
         }
 
@@ -442,25 +426,6 @@ def _interval_detail(request, interval, model_override=None):
             run_rows = []
 
             for run in runs:
-                # Track completed runs for ARIMA detail table
-                if model_key == "ARIMA" and (run.info.status or "").upper() == "FINISHED":
-                    run_pred = _get_predicted_price(run)
-                    run_last_close = _get_last_close_price(run)
-                    metrics = run.data.metrics
-                    mae_value = metrics.get("mae")
-                    mse_value = metrics.get("mse")
-                    context["completed_runs"].append({
-                        "run_id": run.info.run_id,
-                        "start_time": _fmt_run_timestamp(run.info.start_time),
-                        "end_time": _fmt_run_timestamp(run.info.end_time),
-                        "status": run.info.status,
-                        "last_record_time": run.data.params.get("last_record_time", "N/A"),
-                        "last_close_price": f"{run_last_close:,.2f}" if run_last_close is not None else "N/A",
-                        "predicted_price": f"{run_pred:,.2f}" if run_pred is not None else "N/A",
-                        "mse": f"{mse_value:,.2f}" if mse_value is not None else "N/A",
-                        "mae": f"{mae_value:,.2f}" if mae_value is not None else "N/A",
-                    })
-
                 last_close = _get_last_close_price(run)
                 pred_next = _get_predicted_price(run)
                 run_time = run.data.params.get("last_record_time", "N/A")
@@ -656,11 +621,7 @@ def _interval_detail(request, interval, model_override=None):
 
         context["comparison"] = comparison_data
 
-        primary_model = "LR"
-        if selected_model in {"LR", "ARIMA"}:
-            primary_model = selected_model
-        elif comparison_data["LR"]["run_count"] == 0 and comparison_data["ARIMA"]["run_count"] > 0:
-            primary_model = "ARIMA"
+        primary_model = "ARIMA"
 
         if comparison_data[primary_model]["run_count"] > 0:
             first_run = comparison_data[primary_model]["runs"][0]
@@ -688,16 +649,13 @@ def _interval_detail(request, interval, model_override=None):
             except (TypeError, ValueError):
                 pass
 
-        context["ab_test_result"] = (
-            f"LR ({comparison_data['LR']['profit']} pts) vs "
-            f"ARIMA ({comparison_data['ARIMA']['profit']} pts)"
-        )
+        context["ab_test_result"] = f"ARIMA ({comparison_data['ARIMA']['profit']} pts)"
 
         roi_fig = go.Figure()
-        roi_model_key = primary_model
+        roi_model_key = "ARIMA"
         roi_curve = comparison_data.get(roi_model_key, {}).get("curve", [])
-        roi_color = "#22c55e" if roi_model_key == "LR" else "#3b82f6"
-        context["roi_chart_label"] = "Linear Regression" if roi_model_key == "LR" else "ARIMA"
+        roi_color = "#3b82f6"
+        context["roi_chart_label"] = "ARIMA"
         if roi_curve:
             roi_fig.add_trace(go.Scatter(
                 x=[p["time"] for p in roi_curve],
@@ -731,10 +689,6 @@ def _interval_detail(request, interval, model_override=None):
 
 def interval_detail(request, interval):
     return _interval_detail(request, interval)
-
-
-def interval_detail_lr(request, interval):
-    return _interval_detail(request, interval, "LR")
 
 
 def interval_detail_arima(request, interval):

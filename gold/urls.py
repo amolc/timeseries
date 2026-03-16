@@ -5,7 +5,6 @@ app_name = 'gold'
 
 urlpatterns = [
     path('', views.gold_dashboard, name='dashboard'),
-    path('interval/<str:interval>/', views.interval_detail, name='interval_detail'),
-    path('interval/<str:interval>/lr/', views.interval_detail_lr, name='interval_detail_lr'),
+    path('interval/<str:interval>/', views.interval_detail_arima, name='interval_detail'),
     path('interval/<str:interval>/arima/', views.interval_detail_arima, name='interval_detail_arima'),
 ]

@@ -1,14 +1,14 @@
+{% load custom_filters %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ asset_name }} {{ interval|upper }} {{ selected_model_label }} | Quantbots Intelligence</title>
+    <title>{{ asset_name }} {{ interval|upper }} ARIMA | Quantbots Intelligence</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --linear-color: #f7c948;
             --arima-blue: #3b82f6;
             --dark-bg: #0d0d0d;
             --card-bg: #1a1a1a;
@@ -48,7 +48,7 @@
         }
         .forecast-box {
             background: linear-gradient(145deg, #1a1a1a 0%, #252525 100%);
-            border: 1px solid var(--linear-color);
+            border: 1px solid var(--arima-blue);
             border-radius: 16px;
             padding: 24px;
             text-align: center;
@@ -56,12 +56,6 @@
         .forecast-value {
             font-size: 2.4rem;
             font-weight: 800;
-            color: var(--linear-color);
-        }
-        .forecast-box.arima {
-            border-color: var(--arima-blue);
-        }
-        .forecast-value.arima {
             color: var(--arima-blue);
         }
         .btn-back {
@@ -76,20 +70,10 @@
             --bs-table-striped-bg: #171d28;
             --bs-table-hover-bg: #1e2532;
         }
-        .switcher .btn.model-lr.active {
-            background: var(--linear-color);
-            color: #111;
-            border-color: var(--linear-color);
-        }
         .switcher .btn.model-arima.active {
             background: var(--arima-blue);
             color: #fff;
             border-color: var(--arima-blue);
-        }
-        .switcher .btn.model-all.active {
-            background: #5b6475;
-            color: #fff;
-            border-color: #5b6475;
         }
         .timeline-pill {
             background: #141821;
@@ -97,9 +81,9 @@
             color: #d4dbe6;
         }
         .timeline-pill.active {
-            background: var(--linear-color);
-            color: #111;
-            border-color: var(--linear-color);
+            background: var(--arima-blue);
+            color: #fff;
+            border-color: var(--arima-blue);
         }
         .asset-price {
             font-size: 2.2rem;
@@ -120,10 +104,6 @@
             padding: 8px 8px 2px;
             margin-top: 10px;
             background: rgba(10, 14, 20, 0.65);
-        }
-        .roi-chart-wrap .js-plotly-plot,
-        .roi-chart-wrap .plot-container {
-            width: 100% !important;
         }
     </style>
 </head>
@@ -170,7 +150,7 @@
 
         <div class="row mb-2">
             <div class="col-lg-8">
-                <h1 class="mb-1">{{ asset_name }} {{ interval|upper }} <span style="color:#7d8ca4;">|</span> {{ selected_model_label }}</h1>
+                <h1 class="mb-1">{{ asset_name }} {{ interval|upper }} <span style="color:#7d8ca4;">|</span> ARIMA Forecasting</h1>
                 <p class="text-muted mb-0">Dedicated forecast view with complete signal and run history.</p>
             </div>
         </div>
@@ -179,31 +159,26 @@
             <div class="col-lg-6">
                 <div class="d-flex flex-wrap gap-2 align-items-center switcher">
                     <span class="text-muted small me-2">MODEL:</span>
-                    <a href="{% url 'usoil:interval_detail_lr' interval %}" class="btn btn-sm btn-outline-light model-lr {% if selected_model == 'LR' %}active{% endif %}">Linear</a>
-                    <a href="{% url 'usoil:interval_detail_arima' interval %}" class="btn btn-sm btn-outline-light model-arima {% if selected_model == 'ARIMA' %}active{% endif %}">ARIMA</a>
-                    <a href="{% url 'usoil:interval_detail' interval %}?model=ALL" class="btn btn-sm btn-outline-light model-all {% if selected_model == 'ALL' %}active{% endif %}">Compare</a>
+                    <a href="{% url 'usoil:interval_detail_arima' interval %}" class="btn btn-sm btn-outline-light model-arima active">ARIMA Forecasting</a>
                 </div>
             </div>
             <div class="col-lg-6">
                 <div class="d-flex flex-wrap gap-2 align-items-center justify-content-lg-end">
                     <span class="text-muted small me-2">TIMELINE:</span>
                     {% for intv in available_intervals %}
-                    {% if selected_model == 'LR' %}
-                    <a href="{% url 'usoil:interval_detail_lr' intv %}" class="btn btn-sm timeline-pill {% if intv == interval %}active{% endif %}">{{ intv|upper }}</a>
-                    {% elif selected_model == 'ARIMA' %}
                     <a href="{% url 'usoil:interval_detail_arima' intv %}" class="btn btn-sm timeline-pill {% if intv == interval %}active{% endif %}">{{ intv|upper }}</a>
-                    {% else %}
-                    <a href="{% url 'usoil:interval_detail' intv %}?model=ALL" class="btn btn-sm timeline-pill {% if intv == interval %}active{% endif %}">{{ intv|upper }}</a>
-                    {% endif %}
                     {% endfor %}
                 </div>
             </div>
         </div>
 
-        <div class="row g-4 mb-4">
+        <div class="row g-4">
             <div class="col-lg-8">
                 <div class="chart-container">
-                    <h5 class="mb-3">Price Action & Forecast Context ({{ interval|upper }})</h5>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">Price History & MA7</h5>
+                        <span class="badge bg-secondary">{{ interval|upper }} Timeframe</span>
+                    </div>
                     {{ chart_html|safe }}
                 </div>
             </div>
@@ -215,13 +190,13 @@
                         <span class="text-muted small me-2">Signal:</span>
                         <span class="badge bg-{{ forecast_signal_class }} px-3 py-2">{{ forecast_signal }}</span>
                     </div>
-                    <div class="text-muted small mt-2">Model: {{ selected_model_label }}</div>
+                    <div class="text-muted small mt-2">Model: ARIMA</div>
                     <div class="text-muted small">Last run: <span class="js-local-time" data-utc="{{ last_run_time }}">{{ last_run_time }}</span></div>
                 </div>
                 <div class="analytics-card">
                     <div class="text-muted small mb-1">ROI Snapshot</div>
                     <div class="h5 mb-2">{{ roi_estimate }}</div>
-                    <div class="text-muted small">Model Curve: {{ roi_chart_label }}</div>
+                    <div class="text-muted small">Model Curve: ARIMA</div>
                     {% if roi_chart_html %}
                     <div class="mt-3 roi-chart-wrap">
                         {{ roi_chart_html|safe }}
@@ -231,91 +206,6 @@
             </div>
         </div>
 
-        {% if selected_model == 'LR' %}
-        <h4 class="mt-5 mb-3">Signal Crossovers</h4>
-        <div class="analytics-card mb-4">
-            <div class="table-responsive">
-                <table class="table table-dark table-striped table-hover table-sm mb-0">
-                    <thead>
-                        <tr class="text-muted" style="font-size:0.75rem;">
-                            <th>Run ID</th>
-                            <th>Start Time</th>
-                            <th class="text-end">Close</th>
-                            <th>Signal</th>
-                            <th>End Time</th>
-                            <th class="text-end">End Price</th>
-                            <th>Duration</th>
-                            <th class="text-end">Profit/Loss</th>
-                            <th>Result</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for signal in comparison.LR.changeover_signals %}
-                        <tr>
-                            <td>{{ signal.run_id }}</td>
-                            <td><span class="js-local-time" data-utc="{{ signal.start_time }}">{{ signal.start_time }}</span></td>
-                            <td class="text-end">{{ signal.start_close }}</td>
-                            <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
-                            <td><span class="js-local-time" data-utc="{{ signal.end_time }}">{{ signal.end_time }}</span></td>
-                            <td class="text-end">{{ signal.end_price }}</td>
-                            <td>{{ signal.duration }}</td>
-                            <td class="text-end text-{{ signal.result_class }}">{{ signal.profitloss }}</td>
-                            <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="9" class="text-center text-muted">No crossover signals found.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <h4 class="mt-5 mb-3">Linear Regression Signals (Complete)</h4>
-        <div class="analytics-card">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="text-muted small">Win Rate: <strong class="text-white">{{ comparison.LR.win_rate }}</strong></span>
-                <span class="badge bg-success">Profit: {{ comparison.LR.profit }} pts</span>
-            </div>
-            <div class="table-responsive">
-                <table class="table table-dark table-striped table-hover table-sm mb-0">
-                    <thead>
-                        <tr class="text-muted" style="font-size:0.75rem;">
-                            <th>Run ID</th>
-                            <th>Time</th>
-                            <th class="text-end">Close</th>
-                            <th class="text-end">Predicted</th>
-                            <th class="text-end">Delta</th>
-                            <th>Signal</th>
-                            <th class="text-end">Actual Price</th>
-                            <th class="text-end">Points</th>
-                            <th class="text-end">MSE</th>
-                            <th class="text-end">MAE</th>
-                            <th>Result</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for signal in comparison.LR.signals %}
-                        <tr>
-                            <td>{{ signal.run_id }}</td>
-                            <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
-                            <td class="text-end">{{ signal.last_close }}</td>
-                            <td class="text-end">{{ signal.pred_next }}</td>
-                            <td class="text-end">{{ signal.delta }}</td>
-                            <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
-                            <td class="text-end">{{ signal.actual_next }}</td>
-                            <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
-                            <td class="text-end">{{ signal.mse }}</td>
-                            <td class="text-end">{{ signal.mae }}</td>
-                            <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="11" class="text-center text-muted">No signal history found.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        {% elif selected_model == 'ARIMA' %}
         <h4 class="mt-5 mb-3">Signal Crossovers</h4>
         <div class="analytics-card mb-4">
             <div class="table-responsive">
@@ -399,230 +289,6 @@
                 </table>
             </div>
         </div>
-
-        <h4 class="mt-5 mb-3">Completed ARIMA Runs</h4>
-        <div class="analytics-card mb-4">
-            <div class="table-responsive">
-                <table class="table table-dark table-striped table-hover table-sm mb-0">
-                    <thead>
-                        <tr class="text-muted" style="font-size: 0.75rem;">
-                            <th>Run ID</th>
-                            <th>Start Time</th>
-                            <th>End Time</th>
-                            <th>Status</th>
-                            <th>Last Record Time</th>
-                            <th class="text-end">Last Close</th>
-                            <th class="text-end">Predicted</th>
-                            <th class="text-end">MSE</th>
-                            <th class="text-end">MAE</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for run in completed_runs %}
-                        <tr>
-                            <td><small>{{ run.run_id|slice:":8" }}</small></td>
-                            <td><span class="js-local-time" data-utc="{{ run.start_time }}">{{ run.start_time }}</span></td>
-                            <td><span class="js-local-time" data-utc="{{ run.end_time }}">{{ run.end_time }}</span></td>
-                            <td><span class="badge {% if run.status == 'FINISHED' %}bg-success{% else %}bg-warning{% endif %}">{{ run.status }}</span></td>
-                            <td><span class="js-local-time" data-utc="{{ run.last_record_time }}">{{ run.last_record_time }}</span></td>
-                            <td class="text-end">{{ run.last_close_price }}</td>
-                            <td class="text-end">{{ run.predicted_price }}</td>
-                            <td class="text-end">{{ run.mse }}</td>
-                            <td class="text-end">{{ run.mae }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="9" class="text-center text-muted">No completed runs found.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        {% else %}
-        <h4 class="mt-5 mb-3">Signal Crossovers</h4>
-        <div class="row g-4 mb-4">
-            <div class="col-lg-12">
-                <div class="analytics-card">
-                    <h6 class="mb-3">Linear Regression Crossovers</h6>
-                    <div class="table-responsive">
-                        <table class="table table-dark table-striped table-hover table-sm mb-0">
-                            <thead>
-                                <tr class="text-muted" style="font-size:0.75rem;">
-                                    <th>Run ID</th>
-                                    <th>Start Time</th>
-                                    <th class="text-end">Close</th>
-                                    <th>Signal</th>
-                                    <th>End Time</th>
-                                    <th class="text-end">End Price</th>
-                                    <th>Duration</th>
-                                    <th class="text-end">Profit/Loss</th>
-                                    <th>Result</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for signal in comparison.LR.changeover_signals %}
-                                <tr>
-                                    <td>{{ signal.run_id }}</td>
-                                    <td><span class="js-local-time" data-utc="{{ signal.start_time }}">{{ signal.start_time }}</span></td>
-                                    <td class="text-end">{{ signal.start_close }}</td>
-                                    <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
-                                    <td><span class="js-local-time" data-utc="{{ signal.end_time }}">{{ signal.end_time }}</span></td>
-                                    <td class="text-end">{{ signal.end_price }}</td>
-                                    <td>{{ signal.duration }}</td>
-                                    <td class="text-end text-{{ signal.result_class }}">{{ signal.profitloss }}</td>
-                                    <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
-                                </tr>
-                                {% empty %}
-                                <tr><td colspan="9" class="text-center text-muted">No crossover signals found.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-12">
-                <div class="analytics-card">
-                    <h6 class="mb-3">ARIMA Crossovers</h6>
-                    <div class="table-responsive">
-                        <table class="table table-dark table-striped table-hover table-sm mb-0">
-                            <thead>
-                                <tr class="text-muted" style="font-size:0.75rem;">
-                                    <th>Run ID</th>
-                                    <th>Start Time</th>
-                                    <th class="text-end">Close</th>
-                                    <th>Signal</th>
-                                    <th>End Time</th>
-                                    <th class="text-end">End Price</th>
-                                    <th>Duration</th>
-                                    <th class="text-end">Profit/Loss</th>
-                                    <th>Result</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for signal in comparison.ARIMA.changeover_signals %}
-                                <tr>
-                                    <td>{{ signal.run_id }}</td>
-                                    <td><span class="js-local-time" data-utc="{{ signal.start_time }}">{{ signal.start_time }}</span></td>
-                                    <td class="text-end">{{ signal.start_close }}</td>
-                                    <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
-                                    <td><span class="js-local-time" data-utc="{{ signal.end_time }}">{{ signal.end_time }}</span></td>
-                                    <td class="text-end">{{ signal.end_price }}</td>
-                                    <td>{{ signal.duration }}</td>
-                                    <td class="text-end text-{{ signal.result_class }}">{{ signal.profitloss }}</td>
-                                    <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
-                                </tr>
-                                {% empty %}
-                                <tr><td colspan="9" class="text-center text-muted">No crossover signals found.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <h4 class="mt-5 mb-3">Signal History (Recent)</h4>
-        <div class="row g-4">
-            <div class="col-lg-12">
-                <div class="analytics-card">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0">Linear Regression Signal History</h6>
-                        <span class="badge bg-success">Profit: {{ comparison.LR.profit }} pts</span>
-                    </div>
-                    <div class="text-muted small mb-2">Win Rate: {{ comparison.LR.win_rate }}</div>
-                    <div class="table-responsive">
-                        <table class="table table-dark table-striped table-hover table-sm mb-0">
-                            <thead>
-                                <tr class="text-muted" style="font-size:0.75rem;">
-                                    <th>Run ID</th>
-                                    <th>Time</th>
-                                    <th class="text-end">Close</th>
-                                    <th class="text-end">Predicted</th>
-                                    <th class="text-end">Delta</th>
-                                    <th>Signal</th>
-                                    <th class="text-end">Actual Price</th>
-                            <th class="text-end">Points</th>
-                            <th class="text-end">MSE</th>
-                            <th class="text-end">MAE</th>
-                            <th class="text-end">Actual Delta</th>
-                            <th>Result</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for signal in comparison.LR.signals %}
-                        <tr>
-                            <td>{{ signal.run_id }}</td>
-                            <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
-                            <td class="text-end">{{ signal.last_close }}</td>
-                            <td class="text-end">{{ signal.pred_next }}</td>
-                            <td class="text-end">{{ signal.delta }}</td>
-                            <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
-                            <td class="text-end">{{ signal.actual_next }}</td>
-                            <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
-                            <td class="text-end">{{ signal.mse }}</td>
-                            <td class="text-end">{{ signal.mae }}</td>
-                            <td class="text-end">{{ signal.actual_delta }}</td>
-                            <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
-                        </tr>
-                                {% empty %}
-                                <tr><td colspan="12" class="text-center text-muted">No signal history found.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-12">
-                <div class="analytics-card">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0">ARIMA Signal History</h6>
-                        <span class="badge bg-primary">Profit: {{ comparison.ARIMA.profit }} pts</span>
-                    </div>
-                    <div class="text-muted small mb-2">Win Rate: {{ comparison.ARIMA.win_rate }}</div>
-                    <div class="table-responsive">
-                        <table class="table table-dark table-striped table-hover table-sm mb-0">
-                            <thead>
-                                <tr class="text-muted" style="font-size:0.75rem;">
-                                    <th>Run ID</th>
-                                    <th>Time</th>
-                                    <th class="text-end">Close</th>
-                                    <th class="text-end">Predicted</th>
-                                    <th class="text-end">Delta</th>
-                                    <th>Signal</th>
-                                    <th class="text-end">Actual Price</th>
-                            <th class="text-end">Points</th>
-                            <th class="text-end">MSE</th>
-                            <th class="text-end">MAE</th>
-                            <th class="text-end">Actual Delta</th>
-                            <th>Result</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for signal in comparison.ARIMA.signals %}
-                        <tr>
-                            <td>{{ signal.run_id }}</td>
-                            <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
-                            <td class="text-end">{{ signal.last_close }}</td>
-                            <td class="text-end">{{ signal.pred_next }}</td>
-                            <td class="text-end">{{ signal.delta }}</td>
-                            <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
-                            <td class="text-end">{{ signal.actual_next }}</td>
-                            <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
-                            <td class="text-end">{{ signal.mse }}</td>
-                            <td class="text-end">{{ signal.mae }}</td>
-                            <td class="text-end">{{ signal.actual_delta }}</td>
-                            <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
-                        </tr>
-                                {% empty %}
-                                <tr><td colspan="12" class="text-center text-muted">No signal history found.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

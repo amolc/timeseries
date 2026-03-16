@@ -185,46 +185,6 @@
         </div>
 
         <div class="target-section">
-            <h4 class="fw-bold mb-3" style="color: var(--btc-orange);">Linear Regression Targets</h4>
-            <div class="row g-3">
-                {% for intv in intervals %}
-                <div class="col-md-3">
-                    <a href="{% url 'btcusd:interval_detail_lr' intv %}" class="text-decoration-none">
-                        <div class="target-card" style="border-color: rgba(247,147,26,0.6);">
-                            <div class="target-header">
-                                <span class="target-label" style="color: var(--btc-orange);">{{ intv|upper }} AI TARGET</span>
-                                {% if predictions_lr|get_item:intv %}
-                                <span class="badge-change {% if predictions_lr|get_item:intv|get_item:'is_positive' %}bg-success{% else %}bg-danger{% endif %} text-white">
-                                    {{ predictions_lr|get_item:intv|get_item:'pct' }}
-                                </span>
-                                {% endif %}
-                            </div>
-                            <div class="target-price">
-                                {% if predictions_lr|get_item:intv %}
-                                    ${{ predictions_lr|get_item:intv|get_item:'price' }}
-                                {% else %}
-                                    <span class="text-muted">N/A</span>
-                                {% endif %}
-                            </div>
-                            <div class="target-meta mt-2">
-                                {% if predictions_lr|get_item:intv %}
-                                    Signal:
-                                    <span class="{% if predictions_lr|get_item:intv|get_item:'is_positive' %}positive{% else %}negative{% endif %}">
-                                        {% if predictions_lr|get_item:intv|get_item:'is_positive' %}BUY{% else %}SELL{% endif %}
-                                    </span>
-                                    | {{ predictions_lr|get_item:intv|get_item:'change' }}
-                                {% else %}
-                                    No active model run
-                                {% endif %}
-                            </div>
-                        </div>
-                    </a>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-
-        <div class="target-section">
             <h4 class="fw-bold mb-3" style="color: var(--arima-blue);">ARIMA Targets</h4>
             <div class="row g-3">
                 {% for intv in intervals %}
