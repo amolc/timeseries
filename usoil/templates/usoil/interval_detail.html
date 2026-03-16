@@ -288,7 +288,8 @@
                             <th>Signal</th>
                             <th class="text-end">Actual Price</th>
                             <th class="text-end">Points</th>
-                            <th class="text-end">Actual Delta</th>
+                            <th class="text-end">MSE</th>
+                            <th class="text-end">MAE</th>
                             <th>Result</th>
                         </tr>
                     </thead>
@@ -303,11 +304,12 @@
                             <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
                             <td class="text-end">{{ signal.actual_next }}</td>
                             <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
-                            <td class="text-end">{{ signal.actual_delta }}</td>
+                            <td class="text-end">{{ signal.mse }}</td>
+                            <td class="text-end">{{ signal.mae }}</td>
                             <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="9" class="text-center text-muted">No signal history found.</td></tr>
+                        <tr><td colspan="11" class="text-center text-muted">No signal history found.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -370,7 +372,8 @@
                             <th>Signal</th>
                             <th class="text-end">Actual Price</th>
                             <th class="text-end">Points</th>
-                            <th class="text-end">Actual Delta</th>
+                            <th class="text-end">MSE</th>
+                            <th class="text-end">MAE</th>
                             <th>Result</th>
                         </tr>
                     </thead>
@@ -385,11 +388,50 @@
                             <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
                             <td class="text-end">{{ signal.actual_next }}</td>
                             <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
-                            <td class="text-end">{{ signal.actual_delta }}</td>
+                            <td class="text-end">{{ signal.mse }}</td>
+                            <td class="text-end">{{ signal.mae }}</td>
                             <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="9" class="text-center text-muted">No signal history found.</td></tr>
+                        <tr><td colspan="11" class="text-center text-muted">No signal history found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <h4 class="mt-5 mb-3">Completed ARIMA Runs</h4>
+        <div class="analytics-card mb-4">
+            <div class="table-responsive">
+                <table class="table table-dark table-striped table-hover table-sm mb-0">
+                    <thead>
+                        <tr class="text-muted" style="font-size: 0.75rem;">
+                            <th>Run ID</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Status</th>
+                            <th>Last Record Time</th>
+                            <th class="text-end">Last Close</th>
+                            <th class="text-end">Predicted</th>
+                            <th class="text-end">MSE</th>
+                            <th class="text-end">MAE</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for run in completed_runs %}
+                        <tr>
+                            <td><small>{{ run.run_id|slice:":8" }}</small></td>
+                            <td><span class="js-local-time" data-utc="{{ run.start_time }}">{{ run.start_time }}</span></td>
+                            <td><span class="js-local-time" data-utc="{{ run.end_time }}">{{ run.end_time }}</span></td>
+                            <td><span class="badge {% if run.status == 'FINISHED' %}bg-success{% else %}bg-warning{% endif %}">{{ run.status }}</span></td>
+                            <td><span class="js-local-time" data-utc="{{ run.last_record_time }}">{{ run.last_record_time }}</span></td>
+                            <td class="text-end">{{ run.last_close_price }}</td>
+                            <td class="text-end">{{ run.predicted_price }}</td>
+                            <td class="text-end">{{ run.mse }}</td>
+                            <td class="text-end">{{ run.mae }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="9" class="text-center text-muted">No completed runs found.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -398,7 +440,7 @@
         {% else %}
         <h4 class="mt-5 mb-3">Signal Crossovers</h4>
         <div class="row g-4 mb-4">
-            <div class="col-lg-6">
+            <div class="col-lg-12">
                 <div class="analytics-card">
                     <h6 class="mb-3">Linear Regression Crossovers</h6>
                     <div class="table-responsive">
@@ -437,7 +479,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-lg-6">
+            <div class="col-lg-12">
                 <div class="analytics-card">
                     <h6 class="mb-3">ARIMA Crossovers</h6>
                     <div class="table-responsive">
@@ -478,12 +520,12 @@
             </div>
         </div>
 
-        <h4 class="mt-5 mb-3">Model Performance Comparison</h4>
+        <h4 class="mt-5 mb-3">Signal History (Recent)</h4>
         <div class="row g-4">
-            <div class="col-lg-6">
+            <div class="col-lg-12">
                 <div class="analytics-card">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0">Linear Regression</h6>
+                        <h6 class="mb-0">Linear Regression Signal History</h6>
                         <span class="badge bg-success">Profit: {{ comparison.LR.profit }} pts</span>
                     </div>
                     <div class="text-muted small mb-2">Win Rate: {{ comparison.LR.win_rate }}</div>
@@ -498,37 +540,41 @@
                                     <th class="text-end">Delta</th>
                                     <th>Signal</th>
                                     <th class="text-end">Actual Price</th>
-                                    <th class="text-end">Points</th>
-                                    <th class="text-end">Actual Delta</th>
-                                    <th>Result</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for signal in comparison.LR.signals %}
-                                <tr>
-                                    <td>{{ signal.run_id }}</td>
-                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
-                                    <td class="text-end">{{ signal.last_close }}</td>
-                                    <td class="text-end">{{ signal.pred_next }}</td>
-                                    <td class="text-end">{{ signal.delta }}</td>
-                                    <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
-                                    <td class="text-end">{{ signal.actual_next }}</td>
-                                    <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
-                                    <td class="text-end">{{ signal.actual_delta }}</td>
-                                    <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
-                                </tr>
+                            <th class="text-end">Points</th>
+                            <th class="text-end">MSE</th>
+                            <th class="text-end">MAE</th>
+                            <th class="text-end">Actual Delta</th>
+                            <th>Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for signal in comparison.LR.signals %}
+                        <tr>
+                            <td>{{ signal.run_id }}</td>
+                            <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
+                            <td class="text-end">{{ signal.last_close }}</td>
+                            <td class="text-end">{{ signal.pred_next }}</td>
+                            <td class="text-end">{{ signal.delta }}</td>
+                            <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
+                            <td class="text-end">{{ signal.actual_next }}</td>
+                            <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
+                            <td class="text-end">{{ signal.mse }}</td>
+                            <td class="text-end">{{ signal.mae }}</td>
+                            <td class="text-end">{{ signal.actual_delta }}</td>
+                            <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
+                        </tr>
                                 {% empty %}
-                                <tr><td colspan="9" class="text-center text-muted">No signal history found.</td></tr>
+                                <tr><td colspan="12" class="text-center text-muted">No signal history found.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
-            <div class="col-lg-6">
+            <div class="col-lg-12">
                 <div class="analytics-card">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0">ARIMA</h6>
+                        <h6 class="mb-0">ARIMA Signal History</h6>
                         <span class="badge bg-primary">Profit: {{ comparison.ARIMA.profit }} pts</span>
                     </div>
                     <div class="text-muted small mb-2">Win Rate: {{ comparison.ARIMA.win_rate }}</div>
@@ -543,27 +589,31 @@
                                     <th class="text-end">Delta</th>
                                     <th>Signal</th>
                                     <th class="text-end">Actual Price</th>
-                                    <th class="text-end">Points</th>
-                                    <th class="text-end">Actual Delta</th>
-                                    <th>Result</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for signal in comparison.ARIMA.signals %}
-                                <tr>
-                                    <td>{{ signal.run_id }}</td>
-                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
-                                    <td class="text-end">{{ signal.last_close }}</td>
-                                    <td class="text-end">{{ signal.pred_next }}</td>
-                                    <td class="text-end">{{ signal.delta }}</td>
-                                    <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
-                                    <td class="text-end">{{ signal.actual_next }}</td>
-                                    <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
-                                    <td class="text-end">{{ signal.actual_delta }}</td>
-                                    <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
-                                </tr>
+                            <th class="text-end">Points</th>
+                            <th class="text-end">MSE</th>
+                            <th class="text-end">MAE</th>
+                            <th class="text-end">Actual Delta</th>
+                            <th>Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for signal in comparison.ARIMA.signals %}
+                        <tr>
+                            <td>{{ signal.run_id }}</td>
+                            <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
+                            <td class="text-end">{{ signal.last_close }}</td>
+                            <td class="text-end">{{ signal.pred_next }}</td>
+                            <td class="text-end">{{ signal.delta }}</td>
+                            <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
+                            <td class="text-end">{{ signal.actual_next }}</td>
+                            <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
+                            <td class="text-end">{{ signal.mse }}</td>
+                            <td class="text-end">{{ signal.mae }}</td>
+                            <td class="text-end">{{ signal.actual_delta }}</td>
+                            <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
+                        </tr>
                                 {% empty %}
-                                <tr><td colspan="9" class="text-center text-muted">No signal history found.</td></tr>
+                                <tr><td colspan="12" class="text-center text-muted">No signal history found.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>

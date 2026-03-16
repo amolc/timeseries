@@ -55,7 +55,7 @@
                         <tbody>
                             {% for signal in lr_signals %}
                             <tr>
-                                <td>{{ signal.time }}</td>
+                                <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
                                 <td>${{ signal.last_close }}</td>
                                 <td>${{ signal.pred_next }}</td>
                                 <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
@@ -95,7 +95,7 @@
                         <tbody>
                             {% for signal in arima_signals %}
                             <tr>
-                                <td>{{ signal.time }}</td>
+                                <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
                                 <td>${{ signal.last_close }}</td>
                                 <td>${{ signal.pred_next }}</td>
                                 <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
@@ -137,7 +137,7 @@
                     <td>{{ entry.period }}</td>
                     <td>${{ entry.simulated_profit_usd|floatformat:2 }}</td>
                     <td>{{ entry.risk_reduction_pct }}%</td>
-                    <td>{{ entry.calculated_at|date:"Y-m-d H:i" }}</td>
+                    <td><span class="js-local-time" data-utc="{{ entry.calculated_at|date:'Y-m-d H:i:s' }}">{{ entry.calculated_at|date:"Y-m-d H:i" }}</span></td>
                 </tr>
                 {% empty %}
                 <tr>

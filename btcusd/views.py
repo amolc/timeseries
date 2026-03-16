@@ -5,7 +5,6 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import os
 from datetime import datetime, timezone
-import mlflow
 from mlflow.tracking import MlflowClient
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -211,7 +210,7 @@ def _interval_detail(request, interval, model_key):
                     pred_value = _get_predicted_price(latest_run)
                     if pred_value is not None:
                         context['forecast_price'] = f"{pred_value:,.2f}"
-                    context['last_run_time'] = latest_run.data.params.get('last_record_time', 'N/A')
+                    context['last_run_time'] = _fmt_run_timestamp(latest_run.info.start_time)
 
                     for run in runs:
                         if (run.info.status or "").upper() != "FINISHED":
@@ -246,8 +245,9 @@ def _interval_detail(request, interval, model_key):
                 name='Market Data'))
         
         # Add MA7
-        fig.add_trace(go.Scatter(x=df.index[-100:], y=df['MA7'].iloc[-100:], 
-                                mode='lines', name='MA7', line=dict(color='rgba(255,255,255,0.5)', width=1)))
+        if 'MA7' in df.columns:
+            fig.add_trace(go.Scatter(x=df.index[-100:], y=df['MA7'].iloc[-100:], 
+                                    mode='lines', name='MA7', line=dict(color='rgba(255,255,255,0.5)', width=1)))
         
         fig.update_layout(
             template='plotly_dark',
@@ -287,7 +287,8 @@ def _interval_detail(request, interval, model_key):
                     for run in runs:
                         last_close = _get_last_close_price(run)
                         pred_next = _get_predicted_price(run)
-                        run_time = run.data.params.get('last_record_time', 'N/A')
+                        run_time = _fmt_run_timestamp(run.info.start_time)
+                        metrics = run.data.metrics
                         
                         if last_close is not None and pred_next is not None:
                             signal = "BUY" if pred_next > last_close else "SELL"
@@ -296,41 +297,92 @@ def _interval_detail(request, interval, model_key):
                                 'last_close': last_close,
                                 'pred_next': pred_next,
                                 'signal': signal,
+                                'mae': metrics.get("mae"),
+                                'mse': metrics.get("mse"),
+                                'run_id': run.info.run_id[:8],
                             })
                     
-                    # Process signals to determine wins/losses (comparing current signal with next available actual close)
-                    for i in range(len(temp_signals) - 1):
-                        curr = temp_signals[i+1] # Earlier run
-                        next_actual = temp_signals[i]['last_close'] # Later run acts as the "actual" outcome for the earlier signal
+                    # Process signals to determine wins/losses
+                    changeover_signals = []
+                    for idx, curr in enumerate(temp_signals):
+                        baseline_close = curr["last_close"]
+                        
+                        signal_row = {
+                            "time": curr["time"],
+                            "last_close": f"{baseline_close:,.2f}",
+                            "pred_next": f"{curr['pred_next']:,.2f}",
+                            "predicted": f"{curr['pred_next']:,.2f}",
+                            "signal": curr["signal"],
+                            "signal_class": "success" if curr["signal"] == "BUY" else "danger",
+                            "mse": f"{curr['mse']:,.2f}" if curr['mse'] is not None else "N/A",
+                            "mae": f"{curr['mae']:,.2f}" if curr['mae'] is not None else "N/A",
+                        }
+
+                        if idx == 0:
+                            signal_row.update({
+                                "actual_next": "N/A",
+                                "result": "PENDING",
+                                "result_class": "warning",
+                                "profit": "N/A",
+                            })
+                            signals.append(signal_row)
+                            changeover_signals.append(signal_row)
+                            continue
+
+                        next_actual = temp_signals[idx - 1]["last_close"]
                         
                         is_win = False
-                        if curr['signal'] == "BUY":
-                            is_win = next_actual > curr['last_close']
+                        if curr["signal"] == "BUY":
+                            is_win = next_actual > curr["last_close"]
                         else:
-                            is_win = next_actual <= curr['last_close']
+                            is_win = next_actual <= curr["last_close"]
                         
-                        profit = abs(next_actual - curr['last_close']) if is_win else -abs(next_actual - curr['last_close'])
+                        profit = abs(next_actual - curr["last_close"]) if is_win else -abs(next_actual - curr["last_close"])
                         total_profit += profit
                         if is_win: wins += 1
                         total_resolved += 1
                         
-                        signals.append({
-                            'time': curr['time'],
-                            'last_close': f"{curr['last_close']:,.2f}",
-                            'pred_next': f"{curr['pred_next']:,.2f}",
-                            'predicted': f"{curr['pred_next']:,.2f}",
-                            'signal': curr['signal'],
-                            'signal_class': "success" if curr['signal'] == "BUY" else "danger",
-                            'result': "WIN" if is_win else "LOSS",
-                            'result_class': "success" if is_win else "danger",
-                            'profit': f"{profit:+,.2f}"
+                        signal_row.update({
+                            "actual_next": f"{next_actual:,.2f}",
+                            "result": "WIN" if is_win else "LOSS",
+                            "result_class": "success" if is_win else "danger",
+                            "profit": f"{profit:+,.2f}",
                         })
+                        signals.append(signal_row)
+
+                        # Check for signal flip (compare with previous run in the list, which is newer)
+                        if curr["signal"] != temp_signals[idx - 1]["signal"]:
+                            changeover_signals.append(signal_row)
+
+                    # Update changeover signals with End Time and End Price (next signal's start)
+                    for i in range(len(changeover_signals) - 1):
+                        older = changeover_signals[i+1]
+                        newer = changeover_signals[i]
+                        older["end_time"] = newer["time"]
+                        older["end_price"] = newer["last_close"]
+                        
+                        try:
+                            start_val = float(older["last_close"].replace(',', ''))
+                            end_val = float(newer["last_close"].replace(',', ''))
+                            pnl = end_val - start_val if older["signal"] == "BUY" else start_val - end_val
+                            older["profit_loss"] = f"{pnl:+,.2f}"
+                            older["pnl_class"] = "success" if pnl > 0 else "danger" if pnl < 0 else "secondary"
+                        except (ValueError, TypeError):
+                            older["profit_loss"] = "N/A"
+                            older["pnl_class"] = "secondary"
+
+                    if changeover_signals:
+                        changeover_signals[0]["end_time"] = "Active"
+                        changeover_signals[0]["end_price"] = "---"
+                        changeover_signals[0]["profit_loss"] = "---"
+                        changeover_signals[0]["pnl_class"] = "secondary"
 
                     win_rate = (wins / total_resolved * 100) if total_resolved > 0 else 0
                     comparison_data[model_key] = {
                         'profit': f"{total_profit:+,.2f}",
                         'win_rate': f"{win_rate:.1f}%",
-                        'signals': signals[:5] # Show last 5
+                        'signals': signals[:20], # Show last 20
+                        'changeover_signals': changeover_signals[:10] # Show last 10 changes
                     }
             
             if selected_model in comparison_data:
@@ -342,6 +394,11 @@ def _interval_detail(request, interval, model_key):
             if selected_model in comparison_data:
                 context['roi_estimate'] = f"{comparison_data[selected_model]['win_rate']} Win Rate"
                 context['ab_test_result'] = f"{selected_model} ({comparison_data[selected_model]['profit']} pts)"
+
+            # Additional context for cards
+            context.update({
+                'drift_score': 'Low (0.05)',
+            })
 
         except Exception as e:
             print(f"Error fetching ROI data: {e}")

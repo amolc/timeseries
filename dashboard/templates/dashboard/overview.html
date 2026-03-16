@@ -83,7 +83,7 @@
                             {% for run in runs %}
                             <tr>
                                 <td>{{ run.run_id|truncatechars:10 }}</td>
-                                <td>{{ run.start_time }}</td>
+                                <td><span class="js-local-time" data-utc="{{ run.start_time }}">{{ run.start_time }}</span></td>
                                 <td>{{ run.model_type }}</td>
                                 <td>{{ run.mse|floatformat:6 }}</td>
                                 <td><span class="badge {% if run.status == 'FINISHED' %}bg-success{% else %}bg-secondary{% endif %}">{{ run.status }}</span></td>

@@ -57,7 +57,7 @@
                         <td>{{ test.treatment_v }}</td>
                         <td><span class="badge bg-{{ test.improvement_class }}">{{ test.improvement }}</span></td>
                         <td><span class="badge bg-info">{{ test.status }}</span></td>
-                        <td>{{ test.started_at }}</td>
+                        <td><span class="js-local-time" data-utc="{{ test.started_at }}">{{ test.started_at }}</span></td>
                     </tr>
                     {% empty %}
                     <tr>
@@ -90,7 +90,7 @@
                     <td>{{ test.test_name }}</td>
                     <td>{{ test.treatment_model_version }}</td>
                     <td>+{{ test.improvement_pct }}%</td>
-                    <td>{{ test.start_date|date:"Y-m-d" }}</td>
+                    <td><span class="js-local-time" data-utc="{{ test.start_date|date:'Y-m-d' }}">{{ test.start_date|date:"Y-m-d" }}</span></td>
                 </tr>
                 {% empty %}
                 <tr>

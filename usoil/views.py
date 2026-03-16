@@ -7,8 +7,8 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import os
 import json
-import mlflow
-from django.utils import timezone
+from datetime import datetime, timezone
+from django.utils import timezone as django_timezone
 from utils.live_price import get_last_price_payload
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -43,6 +43,12 @@ def _get_last_close_price(run):
         return float(raw)
     except (TypeError, ValueError):
         return None
+
+
+def _fmt_run_timestamp(ms):
+    if not ms:
+        return "N/A"
+    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
 def _format_duration(start_time_raw, end_time_raw):
@@ -259,7 +265,7 @@ def usoil_dashboard(request):
         f"{asset_for_meta.lower()} forecast, {asset_for_meta.lower()} trading signals, machine learning finance, "
         "quantitative trading, ARIMA prediction, linear regression forecast, algorithmic market intelligence"
     )
-    current_iso = timezone.now().replace(microsecond=0).isoformat()
+    current_iso = django_timezone.now().replace(microsecond=0).isoformat()
 
     organization_json_ld = {
         "@context": "https://schema.org",
@@ -342,6 +348,7 @@ def _interval_detail(request, interval, model_override=None):
         "selected_model_label": selected_model_label,
         "chart_html": "",
         "comparison": {},
+        "completed_runs": [],
         "drift_score": "Stable",
         "ab_test_result": "No recent runs yet",
         "roi_estimate": "N/A",
@@ -435,9 +442,31 @@ def _interval_detail(request, interval, model_override=None):
             run_rows = []
 
             for run in runs:
+                # Track completed runs for ARIMA detail table
+                if model_key == "ARIMA" and (run.info.status or "").upper() == "FINISHED":
+                    run_pred = _get_predicted_price(run)
+                    run_last_close = _get_last_close_price(run)
+                    metrics = run.data.metrics
+                    mae_value = metrics.get("mae")
+                    mse_value = metrics.get("mse")
+                    context["completed_runs"].append({
+                        "run_id": run.info.run_id,
+                        "start_time": _fmt_run_timestamp(run.info.start_time),
+                        "end_time": _fmt_run_timestamp(run.info.end_time),
+                        "status": run.info.status,
+                        "last_record_time": run.data.params.get("last_record_time", "N/A"),
+                        "last_close_price": f"{run_last_close:,.2f}" if run_last_close is not None else "N/A",
+                        "predicted_price": f"{run_pred:,.2f}" if run_pred is not None else "N/A",
+                        "mse": f"{mse_value:,.2f}" if mse_value is not None else "N/A",
+                        "mae": f"{mae_value:,.2f}" if mae_value is not None else "N/A",
+                    })
+
                 last_close = _get_last_close_price(run)
                 pred_next = _get_predicted_price(run)
                 run_time = run.data.params.get("last_record_time", "N/A")
+                metrics = run.data.metrics
+                mae_value = metrics.get("mae")
+                mse_value = metrics.get("mse")
 
                 if last_close is not None and pred_next is not None:
                     delta = pred_next - last_close
@@ -449,6 +478,8 @@ def _interval_detail(request, interval, model_override=None):
                         "pred_next": pred_next,
                         "signal": signal,
                         "run_id": run.info.run_id[:8],
+                        "mse": f"{mse_value:,.2f}" if mse_value is not None else "N/A",
+                        "mae": f"{mae_value:,.2f}" if mae_value is not None else "N/A",
                     })
                     run_rows.append({
                         "time": run_time,
@@ -481,6 +512,8 @@ def _interval_detail(request, interval, model_override=None):
                     "signal": curr["signal"],
                     "signal_class": "success" if curr["signal"] == "BUY" else "danger",
                     "run_id": curr["run_id"],
+                    "mse": curr.get("mse", "N/A"),
+                    "mae": curr.get("mae", "N/A"),
                 }
 
                 if idx == 0:
@@ -609,9 +642,9 @@ def _interval_detail(request, interval, model_override=None):
             comparison_data[model_key] = {
                 "profit": f"{crossover_total_profit:+,.2f}",
                 "win_rate": f"{win_rate:.1f}%",
-                "signals": signals,
-                "changeover_signals": changeover_signals,
-                "runs": run_rows,
+                "signals": signals[:20],  # Show last 20
+                "changeover_signals": changeover_signals[:20],  # Show last 20
+                "runs": run_rows[:20],
                 "run_count": len(run_rows),
                 "curve": curve,
             }

@@ -57,7 +57,7 @@
                 <hr>
                 <div class="alert alert-info py-2 small mb-0">
                     <i class="bi bi-info-circle me-1"></i>
-                    Last calculated: {{ last_updated }}
+                    Last calculated: <span class="js-local-time" data-utc="{{ last_updated }}">{{ last_updated }}</span>
                 </div>
             </div>
         </div>

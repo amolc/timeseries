@@ -146,7 +146,7 @@
                         <div class="forecast-box p-3 h-100">
                             <div class="analytics-label" style="font-size: 0.7rem;">{{ selected_model_label }}</div>
                             <div class="forecast-value" style="font-size: 1.5rem;">${{ forecast_price }}</div>
-                            <div class="text-muted x-small">Latest Run: {{ last_run_time }}</div>
+                            <div class="text-muted x-small">Latest Run: <span class="js-local-time" data-utc="{{ last_run_time }}">{{ last_run_time }}</span></div>
                         </div>
                     </div>
                 </div>
@@ -199,11 +199,10 @@
         </div>
 
         <!-- New Model Comparison Section -->
-        <h3 class="mt-5 mb-4">Model Performance & Signal Comparison</h3>
+        <h3 class="mt-5 mb-4">{{ selected_model_label }} Performance & Signal History</h3>
         <div class="row g-4">
-            {% if selected_model == 'LR' and comparison.LR %}
-            <!-- Linear Regression Column -->
-            <div class="col-lg-6">
+            {% if comparison.LR %}
+            <div class="col-lg-12">
                 <div class="analytics-card border-success" style="border-width: 2px;">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5 class="mb-0">Linear Regression (LR)</h5>
@@ -211,6 +210,37 @@
                     </div>
                     <div class="analytics-label">Historical Win Rate: <strong>{{ comparison.LR.win_rate }}</strong></div>
                     
+                    <h6 class="mt-4 mb-3 text-info">Signal Changeover History</h6>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-dark table-sm table-hover">
+                            <thead>
+                                <tr class="text-muted" style="font-size: 0.75rem;">
+                                    <th>Time</th>
+                                    <th class="text-end">Close</th>
+                                    <th class="text-end">Predicted</th>
+                                    <th>Signal</th>
+                                    <th>Result</th>
+                                    <th class="text-end">Points</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for signal in comparison.LR.changeover_signals %}
+                                <tr style="font-size: 0.85rem;">
+                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
+                                    <td class="text-end">{{ signal.last_close|default:"---" }}</td>
+                                    <td class="text-end">{{ signal.pred_next|default:signal.predicted|default:"---" }}</td>
+                                    <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
+                                    <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
+                                    <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="6" class="text-center text-muted">No signal changes detected.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h6 class="mt-4 mb-3 text-muted">Full Signal History</h6>
                     <div class="table-responsive mt-3">
                         <table class="table table-dark table-sm table-hover">
                             <thead>
@@ -221,61 +251,24 @@
                                     <th>Signal</th>
                                     <th>Result</th>
                                     <th class="text-end">Points</th>
+                                    <th class="text-end">MSE</th>
+                                    <th class="text-end">MAE</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for signal in comparison.LR.signals %}
                                 <tr style="font-size: 0.85rem;">
-                                    <td>{{ signal.time }}</td>
+                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
                                     <td class="text-end">{{ signal.last_close|default:"---" }}</td>
                                     <td class="text-end">{{ signal.pred_next|default:signal.predicted|default:"---" }}</td>
                                     <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
                                     <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
                                     <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
+                                    <td class="text-end">{{ signal.mse }}</td>
+                                    <td class="text-end">{{ signal.mae }}</td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="6" class="text-center text-muted">No signal history found.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            {% elif selected_model == 'ARIMA' and comparison.ARIMA %}
-
-            <!-- ARIMA Column -->
-            <div class="col-lg-6">
-                <div class="analytics-card border-primary" style="border-width: 2px;">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="mb-0">ARIMA Forecasting</h5>
-                        <span class="badge bg-primary">Profit: {{ comparison.ARIMA.profit }} pts</span>
-                    </div>
-                    <div class="analytics-label">Historical Win Rate: <strong>{{ comparison.ARIMA.win_rate }}</strong></div>
-                    
-                    <div class="table-responsive mt-3">
-                        <table class="table table-dark table-sm table-hover">
-                            <thead>
-                                <tr class="text-muted" style="font-size: 0.75rem;">
-                                    <th>Time</th>
-                                    <th class="text-end">Close</th>
-                                    <th class="text-end">Predicted</th>
-                                    <th>Signal</th>
-                                    <th>Result</th>
-                                    <th class="text-end">Points</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for signal in comparison.ARIMA.signals %}
-                                <tr style="font-size: 0.85rem;">
-                                    <td>{{ signal.time }}</td>
-                                    <td class="text-end">{{ signal.last_close|default:"---" }}</td>
-                                    <td class="text-end">{{ signal.pred_next|default:signal.predicted|default:"---" }}</td>
-                                    <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
-                                    <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
-                                    <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
-                                </tr>
-                                {% empty %}
-                                <tr><td colspan="6" class="text-center text-muted">No signal history found.</td></tr>
+                                <tr><td colspan="8" class="text-center text-muted">No signal history found.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -283,6 +276,120 @@
                 </div>
             </div>
             {% endif %}
+
+            {% if comparison.ARIMA %}
+            <div class="col-lg-12">
+                <div class="analytics-card border-primary" style="border-width: 2px;">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">ARIMA Forecasting</h5>
+                        <span class="badge bg-primary">Profit: {{ comparison.ARIMA.profit }} pts</span>
+                    </div>
+                    <div class="analytics-label">Historical Win Rate: <strong>{{ comparison.ARIMA.win_rate }}</strong></div>
+                    
+                    <h6 class="mt-4 mb-3 text-info">Signal Changeover History</h6>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-dark table-sm table-hover">
+                            <thead>
+                                <tr class="text-muted" style="font-size: 0.75rem;">
+                                    <th>Time</th>
+                                    <th class="text-end">Close</th>
+                                    <th class="text-end">Predicted</th>
+                                    <th>Signal</th>
+                                    <th>Result</th>
+                                    <th class="text-end">Points</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for signal in comparison.ARIMA.changeover_signals %}
+                                <tr style="font-size: 0.85rem;">
+                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
+                                    <td class="text-end">{{ signal.last_close|default:"---" }}</td>
+                                    <td class="text-end">{{ signal.pred_next|default:signal.predicted|default:"---" }}</td>
+                                    <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
+                                    <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
+                                    <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="6" class="text-center text-muted">No signal changes detected.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h6 class="mt-4 mb-3 text-muted">Full Signal History</h6>
+                    <div class="table-responsive mt-3">
+                        <table class="table table-dark table-sm table-hover">
+                            <thead>
+                                <tr class="text-muted" style="font-size: 0.75rem;">
+                                    <th>Time</th>
+                                    <th class="text-end">Close</th>
+                                    <th class="text-end">Predicted</th>
+                                    <th>Signal</th>
+                                    <th>Result</th>
+                                    <th class="text-end">Points</th>
+                                    <th class="text-end">MSE</th>
+                                    <th class="text-end">MAE</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for signal in comparison.ARIMA.signals %}
+                                <tr style="font-size: 0.85rem;">
+                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
+                                    <td class="text-end">{{ signal.last_close|default:"---" }}</td>
+                                    <td class="text-end">{{ signal.pred_next|default:signal.predicted|default:"---" }}</td>
+                                    <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
+                                    <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
+                                    <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
+                                    <td class="text-end">{{ signal.mse }}</td>
+                                    <td class="text-end">{{ signal.mae }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="8" class="text-center text-muted">No signal history found.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <h3 class="mt-5 mb-4">{{ selected_model_label }} Completed Runs</h3>
+        <div class="analytics-card">
+            <div class="table-responsive">
+                <table class="table table-dark table-sm table-hover align-middle mb-0">
+                    <thead>
+                        <tr class="text-muted" style="font-size: 0.75rem;">
+                            <th>Run ID</th>
+                            <th>Start (UTC)</th>
+                            <th>End (UTC)</th>
+                            <th>Data Time</th>
+                            <th class="text-end">Last Close</th>
+                            <th class="text-end">Predicted</th>
+                            <th class="text-end">MSE</th>
+                            <th class="text-end">MAE</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for run in completed_runs %}
+                        <tr style="font-size: 0.85rem;">
+                            <td><code>{{ run.run_id|slice:":8" }}</code></td>
+                            <td><span class="js-local-time" data-utc="{{ run.start_time }}">{{ run.start_time }}</span></td>
+                            <td><span class="js-local-time" data-utc="{{ run.end_time }}">{{ run.end_time }}</span></td>
+                            <td><span class="js-local-time" data-utc="{{ run.last_record_time }}">{{ run.last_record_time }}</span></td>
+                            <td class="text-end">{{ run.last_close_price }}</td>
+                            <td class="text-end">{{ run.predicted_price }}</td>
+                            <td class="text-end">{{ run.mse }}</td>
+                            <td class="text-end">{{ run.mae }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted">No completed runs found for {{ selected_model }} {{ interval|upper }}.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <!-- ROI Simulation Note -->
@@ -312,5 +419,22 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.querySelectorAll(".js-local-time").forEach((el) => {
+            const raw = (el.dataset.utc || "").trim();
+            if (!raw || raw.toUpperCase() === "N/A") return;
+            const iso = raw.replace(" ", "T");
+            const dt = new Date(iso.endsWith("Z") ? iso : `${iso}Z`);
+            if (Number.isNaN(dt.getTime())) return;
+            el.textContent = dt.toLocaleString(undefined, {
+                year: "numeric",
+                month: "short",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+            });
+        });
+    </script>
 </body>
 </html>

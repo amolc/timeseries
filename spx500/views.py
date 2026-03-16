@@ -5,6 +5,8 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import os
 import mlflow
+from datetime import datetime, timezone
+from mlflow.tracking import MlflowClient
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 MLFLOW_DB_PATH = PROJECT_ROOT / "mlflow.db"
@@ -38,6 +40,13 @@ def _get_last_close_price(run):
         return float(raw)
     except (TypeError, ValueError):
         return None
+
+
+def _fmt_run_timestamp(ms):
+    if not ms:
+        return "N/A"
+    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
 
 def spx500_dashboard(request):
     """Main SPX500 Dashboard with interval selection cards and top predictions."""
@@ -123,6 +132,7 @@ def _interval_detail(request, interval, model_key):
         'last_run_time': 'N/A',
         'selected_model': selected_model,
         'selected_model_label': selected_model_label,
+        'completed_runs': [],
     }
     
     if processed_file.exists():
@@ -132,9 +142,48 @@ def _interval_detail(request, interval, model_key):
         latest_price = df['Close'].iloc[-1]
         context['latest_price'] = f"{latest_price:,.2f}"
         
+        # Get Forecast from MLflow
+        try:
+            client = MlflowClient()
+            experiment = client.get_experiment_by_name(f"SPX500_{selected_model}_{interval}")
+            if experiment:
+                runs = client.search_runs(
+                    experiment_ids=[experiment.experiment_id],
+                    order_by=["attributes.start_time DESC"],
+                    max_results=20
+                )
+                if runs:
+                    latest_run = runs[0]
+                    pred_value = _get_predicted_price(latest_run)
+                    if pred_value is not None:
+                        context['forecast_price'] = f"{pred_value:,.2f}"
+                    context['last_run_time'] = _fmt_run_timestamp(latest_run.info.start_time)
+
+                    for run in runs:
+                        if (run.info.status or "").upper() != "FINISHED":
+                            continue
+
+                        run_pred = _get_predicted_price(run)
+                        run_last_close = _get_last_close_price(run)
+                        metrics = run.data.metrics
+                        mae_value = metrics.get("mae")
+                        mse_value = metrics.get("mse")
+                        context["completed_runs"].append({
+                            "run_id": run.info.run_id,
+                            "start_time": _fmt_run_timestamp(run.info.start_time),
+                            "end_time": _fmt_run_timestamp(run.info.end_time),
+                            "status": run.info.status,
+                            "last_record_time": run.data.params.get("last_record_time", "N/A"),
+                            "last_close_price": f"{run_last_close:,.2f}" if run_last_close is not None else "N/A",
+                            "predicted_price": f"{run_pred:,.2f}" if run_pred is not None else "N/A",
+                            "mse": f"{mse_value:,.2f}" if mse_value is not None else "N/A",
+                            "mae": f"{mae_value:,.2f}" if mae_value is not None else "N/A",
+                        })
+        except Exception as e:
+            print(f"Error fetching forecast: {e}")
+
         # Real ROI & Model Comparison (LR vs ARIMA)
         try:
-            from mlflow.tracking import MlflowClient
             client = MlflowClient()
             experiments = {
                 "LR": f"SPX500_LR_{interval}",
@@ -151,11 +200,18 @@ def _interval_detail(request, interval, model_key):
                         max_results=20
                     )
                     
+                    signals = []
+                    wins = 0
+                    total_resolved = 0
+                    total_profit = 0.0
+                    
+                    # Convert runs to signals for processing
                     temp_signals = []
                     for run in runs:
                         last_close = _get_last_close_price(run)
                         pred_next = _get_predicted_price(run)
-                        run_time = run.data.params.get('last_record_time', 'N/A')
+                        run_time = _fmt_run_timestamp(run.info.start_time)
+                        metrics = run.data.metrics
                         
                         if last_close is not None and pred_next is not None:
                             signal = "BUY" if pred_next > last_close else "SELL"
@@ -164,43 +220,83 @@ def _interval_detail(request, interval, model_key):
                                 'last_close': last_close,
                                 'pred_next': pred_next,
                                 'signal': signal,
+                                'mae': metrics.get("mae"),
+                                'mse': metrics.get("mse"),
                             })
                     
-                    processed_signals = []
-                    
-                    for i in range(len(temp_signals) - 1):
-                        pass # Reserved for future ROI calculation logic
-                    
-                    # Simpler logic for now: just show the signals
-                    for sig in temp_signals[:5]:
-                        processed_signals.append({
-                            'time': sig['time'],
-                            'last_close': f"{sig['last_close']:,.2f}",
-                            'predicted': f"{sig['pred_next']:,.2f}",
-                            'signal': sig['signal'],
-                            'signal_class': 'success' if sig['signal'] == 'BUY' else 'danger',
-                            'result': 'PENDING',
-                            'result_class': 'muted',
-                            'profit': '---'
-                        })
-                    
-                    comparison_data[model_key] = {
-                        'win_rate': '75%', # Mock for now
-                        'profit': '+124.5',
-                        'signals': processed_signals
-                    }
+                    # Process signals to determine wins/losses
+                    changeover_signals = []
+                    for idx, curr in enumerate(temp_signals):
+                        baseline_close = curr["last_close"]
+                        
+                        signal_row = {
+                            "time": curr["time"],
+                            "last_close": f"{baseline_close:,.2f}",
+                            "pred_next": f"{curr['pred_next']:,.2f}",
+                            "predicted": f"{curr['pred_next']:,.2f}",
+                            "signal": curr["signal"],
+                            "signal_class": "success" if curr["signal"] == "BUY" else "danger",
+                            "mse": f"{curr['mse']:,.2f}" if curr['mse'] is not None else "N/A",
+                            "mae": f"{curr['mae']:,.2f}" if curr['mae'] is not None else "N/A",
+                        }
 
-                    if temp_signals and model_key == selected_model:
-                        context['forecast_price'] = f"{temp_signals[0]['pred_next']:,.2f}"
-                        context['last_run_time'] = temp_signals[0]['time']
+                        if idx == 0:
+                            signal_row.update({
+                                "actual_next": "N/A",
+                                "result": "PENDING",
+                                "result_class": "warning",
+                                "profit": "N/A",
+                            })
+                            signals.append(signal_row)
+                            changeover_signals.append(signal_row)
+                            continue
+
+                        next_actual = temp_signals[idx - 1]["last_close"]
+                        
+                        is_win = False
+                        if curr["signal"] == "BUY":
+                            is_win = next_actual > curr["last_close"]
+                        else:
+                            is_win = next_actual <= curr["last_close"]
+                        
+                        profit = abs(next_actual - curr["last_close"]) if is_win else -abs(next_actual - curr["last_close"])
+                        total_profit += profit
+                        if is_win: wins += 1
+                        total_resolved += 1
+                        
+                        signal_row.update({
+                            "actual_next": f"{next_actual:,.2f}",
+                            "result": "WIN" if is_win else "LOSS",
+                            "result_class": "success" if is_win else "danger",
+                            "profit": f"{profit:+,.2f}",
+                        })
+                        signals.append(signal_row)
+
+                        # Check for signal flip
+                        if idx + 1 < len(temp_signals) and curr["signal"] != temp_signals[idx + 1]["signal"]:
+                            changeover_signals.append(signal_row)
+
+                    win_rate = (wins / total_resolved * 100) if total_resolved > 0 else 0
+                    comparison_data[model_key] = {
+                        'profit': f"{total_profit:+,.2f}",
+                        'win_rate': f"{win_rate:.1f}%",
+                        'signals': signals[:20],
+                        'changeover_signals': changeover_signals[:10]
+                    }
             
             if selected_model in comparison_data:
                 context['comparison'] = {selected_model: comparison_data[selected_model]}
             else:
                 context['comparison'] = {}
             
+            # Update summary stats with real data if available
+            if selected_model in comparison_data:
+                context['roi_estimate'] = f"{comparison_data[selected_model]['win_rate']} Win Rate"
+                context['ab_test_result'] = f"{selected_model} ({comparison_data[selected_model]['profit']} pts)"
+
         except Exception as e:
-            print(f"Error fetching forecast: {e}")
+            print(f"Error fetching ROI data: {e}")
+            context['comparison'] = {}
 
         # Interactive Chart
         fig = go.Figure()
@@ -230,13 +326,7 @@ def _interval_detail(request, interval, model_key):
         # Additional context for cards
         context.update({
             'drift_score': 'Low (0.12)',
-            'ab_test_result': 'LR +5% vs ARIMA',
-            'roi_estimate': '+12.4%',
         })
-        if context.get('comparison'):
-            selected_data = list(context['comparison'].values())[0]
-            context['roi_estimate'] = f"{selected_data['win_rate']} Win Rate"
-            context['ab_test_result'] = f"{selected_model} ({selected_data['profit']} pts)"
     
     return render(request, 'spx500/interval_detail.html', context)
 
