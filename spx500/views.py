@@ -130,28 +130,36 @@ def spx500_dashboard(request):
     )
 
     # Signal logic from 1h ARIMA (similar to BTC/NIFTY/GOLD)
+    latest_call = None
     try:
         exp_1h = client.get_experiment_by_name("SPX500_ARIMA_1h")
         if exp_1h:
             runs = client.search_runs(experiment_ids=[exp_1h.experiment_id], order_by=["attributes.start_time DESC"], max_results=1)
             if runs:
-                latest_run = runs[0]
-                pred_1h = _get_predicted_price(latest_run)
-                last_close_1h = _get_last_close_price(latest_run)
-                
-                if pred_1h and last_close_1h:
-                    is_buy = pred_1h > last_close_1h
-                    context['running_signal_label'] = "BUY" if is_buy else "SELL"
-                    context['running_signal_class'] = "success" if is_buy else "danger"
-                    context['running_call_value'] = f"{pred_1h:,.2f}"
-                    context['running_call_time'] = _fmt_run_timestamp(latest_run.info.start_time)
-                    
-                    if latest_price > 0:
-                        profit = (latest_price - last_close_1h) if is_buy else (last_close_1h - latest_price)
-                        context['running_profit'] = f"{profit:+,.2f}"
-                        context['running_profit_class'] = "success" if profit >= 0 else "danger"
+                run = runs[0]
+                pred = _get_predicted_price(run)
+                last_close = _get_last_close_price(run)
+                if pred is not None and last_close is not None:
+                    side = "BUY" if pred > last_close else "SELL"
+                    latest_call = {
+                        "side": side,
+                        "trigger_price": float(last_close),
+                        "trigger_time": run.data.params.get("last_record_time") or _fmt_run_timestamp(run.info.start_time),
+                    }
     except Exception as e:
         print(f"Error fetching 1h signal: {e}")
+
+    if latest_call:
+        context["running_call_side"] = latest_call["side"]
+        context["running_call_value"] = f"{latest_call['trigger_price']:,.2f}"
+        context["running_call_time"] = latest_call["trigger_time"]
+        context["running_signal_label"] = f"{latest_call['side']} (Live)"
+        context["running_signal_class"] = "success" if latest_call["side"] == "BUY" else "danger"
+        
+        if latest_price > 0:
+            profit = (latest_price - latest_call["trigger_price"]) if latest_call["side"] == "BUY" else (latest_call["trigger_price"] - latest_price)
+            context["running_profit"] = f"{profit:+,.2f}"
+            context["running_profit_class"] = "success" if profit > 0 else ("danger" if profit < 0 else "secondary")
 
     if processed_file.exists():
         df = pd.read_csv(processed_file, index_col=0, parse_dates=True)
@@ -348,13 +356,11 @@ def _interval_detail(request, interval, model_key="ARIMA"):
                     # Reverse to DESC for display
                     changeovers.reverse()
                     
-                    # 2. Format Changeovers for display (with next-trade-start-price-based P/L)
+                    # 2. Format Changeovers for display
                     formatted_changeovers = []
-                    equity_curve = [0]
-                    equity_timestamps = ["Initial"]
-                    running_equity = 0
                     
-                    for i, co in enumerate(changeovers):
+                    for i in range(len(changeovers)):
+                        co = changeovers[i]
                         row = {
                             "time": co["time"],
                             "signal": co["signal"],
@@ -380,34 +386,45 @@ def _interval_detail(request, interval, model_key="ARIMA"):
                             row["profit_loss_val"] = pnl
                             row["pnl_class"] = "success" if pnl > 0 else "danger"
                             row["result"] = "PROFIT" if pnl > 0 else "LOSS"
-                            
-                            running_equity += pnl
-                            equity_curve.append(running_equity)
-                            equity_timestamps.append(newer_co["time"])
+                        else:
+                            now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                            row["duration"] = _format_duration(co["time"], now_str)
                             
                         formatted_changeovers.append(row)
 
                     # 3. Create ROI Chart (Equity Curve)
-                    roi_fig = go.Figure()
-                    roi_fig.add_trace(go.Scatter(
-                        x=equity_timestamps, 
-                        y=equity_curve,
-                        mode='lines+markers',
-                        name='Equity Curve',
-                        line=dict(color='#00ff00', width=2),
-                        fill='tozeroy',
-                        fillcolor='rgba(0, 255, 0, 0.1)'
-                    ))
-                    roi_fig.update_layout(
-                        template='plotly_dark',
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        plot_bgcolor='rgba(0,0,0,0)',
-                        margin=dict(l=0, r=0, t=10, b=0),
-                        height=200,
-                        xaxis=dict(showgrid=False, visible=False),
-                        yaxis=dict(showgrid=True, gridcolor='#333'),
-                    )
-                    roi_chart_html = pio.to_html(roi_fig, full_html=False, config={'displayModeBar': False})
+                    sig_history = [s for s in formatted_changeovers if s["result"] != "RUNNING" and s["result"] != "OPEN"]
+                    roi_chart_html = ""
+                    if sig_history:
+                        sig_history.reverse() # Chronological
+                        equity = 0
+                        x_vals = []
+                        y_vals = []
+                        for s in sig_history:
+                            equity += s.get("profit_loss_val", 0)
+                            x_vals.append(s["time"])
+                            y_vals.append(equity)
+
+                        roi_fig = go.Figure()
+                        roi_fig.add_trace(go.Scatter(
+                            x=x_vals, 
+                            y=y_vals,
+                            mode='lines+markers',
+                            name='Equity Curve',
+                            line=dict(color='#00ff00' if equity >= 0 else '#ff4d4d', width=2),
+                            fill='tozeroy',
+                            fillcolor='rgba(0, 255, 0, 0.1)' if equity >= 0 else 'rgba(255, 77, 77, 0.1)'
+                        ))
+                        roi_fig.update_layout(
+                            template='plotly_dark',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            margin=dict(l=0, r=0, t=10, b=0),
+                            height=200,
+                            xaxis=dict(showgrid=False, visible=False),
+                            yaxis=dict(showgrid=True, gridcolor='#333'),
+                        )
+                        roi_chart_html = pio.to_html(roi_fig, full_html=False, config={'displayModeBar': False})
 
                     win_rate = (wins / total_resolved * 100) if total_resolved > 0 else 0
                     comparison_data[model_key] = {

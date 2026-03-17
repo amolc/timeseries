@@ -498,13 +498,11 @@ def _interval_detail(request, interval, model_override="ARIMA"):
                     # Reverse to DESC for display
                     changeovers.reverse()
                     
-                    # 2. Format Changeovers for display (with next-trade-start-price-based P/L)
+                    # 2. Format Changeovers for display
                     formatted_changeovers = []
-                    equity_curve = [0]
-                    equity_timestamps = ["Initial"]
-                    running_equity = 0
                     
-                    for i, co in enumerate(changeovers):
+                    for i in range(len(changeovers)):
+                        co = changeovers[i]
                         row = {
                             "time": co["time"],
                             "start_time": co["time"],
@@ -537,34 +535,45 @@ def _interval_detail(request, interval, model_override="ARIMA"):
                             row["pnl_class"] = "success" if pnl > 0 else "danger"
                             row["result"] = "WIN" if pnl > 0 else "LOSS"
                             row["result_class"] = "success" if pnl > 0 else "danger"
-                            
-                            running_equity += pnl
-                            equity_curve.append(running_equity)
-                            equity_timestamps.append(newer_co["time"])
+                        else:
+                            now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                            row["duration"] = _format_duration(co["time"], now_str)
                             
                         formatted_changeovers.append(row)
 
                     # 3. Create ROI Chart (Equity Curve)
-                    roi_fig = go.Figure()
-                    roi_fig.add_trace(go.Scatter(
-                        x=equity_timestamps, 
-                        y=equity_curve,
-                        mode='lines',
-                        name='Equity Curve',
-                        line=dict(color='#00ff00' if running_equity >= 0 else '#ff4d4d', width=2),
-                        fill='tozeroy',
-                        fillcolor='rgba(0, 255, 0, 0.1)' if running_equity >= 0 else 'rgba(255, 0, 0, 0.1)'
-                    ))
-                    roi_fig.update_layout(
-                        template='plotly_dark',
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        plot_bgcolor='rgba(0,0,0,0)',
-                        margin=dict(l=0, r=0, t=10, b=0),
-                        height=120,
-                        xaxis=dict(showgrid=False, visible=False),
-                        yaxis=dict(showgrid=True, gridcolor='#333', visible=False),
-                    )
-                    roi_chart_html = pio.to_html(roi_fig, full_html=False, config={'displayModeBar': False})
+                    sig_history = [s for s in formatted_changeovers if s["result"] != "RUNNING" and s["result"] != "OPEN"]
+                    roi_chart_html = ""
+                    if sig_history:
+                        sig_history.reverse() # Chronological
+                        equity = 0
+                        x_vals = []
+                        y_vals = []
+                        for s in sig_history:
+                            equity += s.get("profit_loss_val", 0)
+                            x_vals.append(s["time"])
+                            y_vals.append(equity)
+
+                        roi_fig = go.Figure()
+                        roi_fig.add_trace(go.Scatter(
+                            x=x_vals, 
+                            y=y_vals,
+                            mode='lines',
+                            name='Equity Curve',
+                            line=dict(color='#00ff00' if equity >= 0 else '#ff4d4d', width=2),
+                            fill='tozeroy',
+                            fillcolor='rgba(0, 255, 0, 0.1)' if equity >= 0 else 'rgba(255, 0, 0, 0.1)'
+                        ))
+                        roi_fig.update_layout(
+                            template='plotly_dark',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            margin=dict(l=0, r=0, t=10, b=0),
+                            height=120,
+                            xaxis=dict(showgrid=False, visible=False),
+                            yaxis=dict(showgrid=True, gridcolor='#333', visible=False),
+                        )
+                        roi_chart_html = pio.to_html(roi_fig, full_html=False, config={'displayModeBar': False})
 
                     win_rate = (wins / total_resolved * 100) if total_resolved > 0 else 0
                     comparison_data[model_key] = {
