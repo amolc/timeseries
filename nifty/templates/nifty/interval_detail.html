@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,14 +17,17 @@
             --positive: #00ff00;
             --negative: #ff4d4d;
         }
+
         body {
             background-color: var(--dark-bg);
             color: white;
             font-family: 'Inter', sans-serif;
         }
+
         .text-muted {
             color: var(--text-muted) !important;
         }
+
         .x-small {
             font-size: 0.75rem;
             color: var(--text-muted);
@@ -34,10 +38,12 @@
             backdrop-filter: blur(10px);
             border-bottom: 1px solid #3a4558;
         }
+
         .detail-container {
             padding-top: 100px;
             padding-bottom: 80px;
         }
+
         .stat-card {
             background-color: var(--card-bg);
             border: 1px solid #3a4558;
@@ -45,6 +51,7 @@
             padding: 24px;
             height: 100%;
         }
+
         .chart-container {
             background-color: var(--card-bg);
             border: 1px solid #3a4558;
@@ -52,6 +59,7 @@
             padding: 30px;
             margin-bottom: 30px;
         }
+
         .forecast-box {
             background: linear-gradient(145deg, #1a1a1a 0%, #252525 100%);
             border: 1px solid var(--nifty-blue);
@@ -59,11 +67,13 @@
             padding: 30px;
             text-align: center;
         }
+
         .forecast-value {
             font-size: 2.5rem;
             font-weight: 800;
             color: var(--nifty-orange);
         }
+
         .analytics-card {
             background-color: var(--card-bg);
             border: 1px solid #3a4558;
@@ -71,6 +81,7 @@
             padding: 20px;
             height: 100%;
         }
+
         .analytics-label {
             color: var(--text-muted);
             font-size: 0.8rem;
@@ -78,10 +89,12 @@
             letter-spacing: 1px;
             margin-bottom: 10px;
         }
+
         .analytics-value {
             font-size: 1.25rem;
             font-weight: 700;
         }
+
         .btn-back {
             color: var(--text-muted);
             text-decoration: none;
@@ -89,16 +102,19 @@
             align-items: center;
             margin-bottom: 20px;
         }
+
         .btn-back:hover {
             color: white;
         }
     </style>
 </head>
+
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
         <div class="container">
             <a class="navbar-brand fw-bold" href="/">Intelligence.quantbots.co</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarInner" aria-controls="navbarInner" aria-expanded="false" aria-label="Toggle navigation">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarInner"
+                aria-controls="navbarInner" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarInner">
@@ -109,7 +125,8 @@
                     <li class="nav-item"><a class="nav-link text-white" href="/dashboard/gold/">Gold</a></li>
                     <li class="nav-item"><a class="nav-link text-white" href="/dashboard/nifty/">Nifty</a></li>
                     <li class="nav-item"><a class="nav-link text-white" href="/dashboard/spx500/">SPX500</a></li>
-                    <li class="nav-item mt-2 mt-lg-0"><a class="btn btn-outline-light btn-sm" href="mailto:collaboration@quantbots.co">Connect</a></li>
+                    <li class="nav-item mt-2 mt-lg-0"><a class="btn btn-outline-light btn-sm"
+                            href="mailto:collaboration@quantbots.co">Connect</a></li>
                 </ul>
             </div>
         </div>
@@ -117,10 +134,11 @@
 
     <div class="container detail-container">
         <a href="{% url 'nifty:dashboard' %}" class="btn-back">← Back to {{ asset_name }} Dashboard</a>
-        
+
         <div class="row mb-4">
             <div class="col-md-8">
-                <h1 class="fw-800">{{ asset_name }} <span style="color: #7d8ca4">|</span> {{ interval|upper }} Interval</h1>
+                <h1 class="fw-800">{{ asset_name }} <span style="color: #7d8ca4">|</span> {{ interval|upper }} Interval
+                </h1>
                 <p class="text-muted">Comprehensive technical analysis and performance metrics</p>
             </div>
             <div class="col-md-4 text-md-end">
@@ -142,11 +160,12 @@
                         <div class="forecast-box p-3 h-100">
                             <div class="analytics-label" style="font-size: 0.7rem;">{{ selected_model_label }}</div>
                             <div class="forecast-value" style="font-size: 1.5rem;">${{ forecast_price }}</div>
-                            <div class="text-muted x-small">Latest Run: <span class="js-local-time" data-utc="{{ last_run_time }}">{{ last_run_time }}</span></div>
+                            <div class="text-muted x-small">Latest Run: <span class="js-local-time"
+                                    data-utc="{{ last_run_time }}">{{ last_run_time }}</span></div>
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="row g-3">
                     <div class="col-12">
                         <div class="analytics-card">
@@ -160,7 +179,8 @@
                     <div class="col-12">
                         <div class="analytics-card">
                             <div class="analytics-label">A/B Testing Status</div>
-                            <div class="analytics-value text-warning" style="font-size: 0.95rem;">{{ ab_test_result }}</div>
+                            <div class="analytics-value text-warning" style="font-size: 0.95rem;">{{ ab_test_result }}
+                            </div>
                         </div>
                     </div>
                     <div class="col-12">
@@ -207,8 +227,9 @@
                         <h5 class="mb-0">ARIMA Forecasting</h5>
                         <span class="badge bg-primary">Profit: {{ comparison.ARIMA.profit }} pts</span>
                     </div>
-                    <div class="analytics-label">Historical Win Rate: <strong>{{ comparison.ARIMA.win_rate }}</strong></div>
-                    
+                    <div class="analytics-label">Historical Win Rate: <strong>{{ comparison.ARIMA.win_rate }}</strong>
+                    </div>
+
                     <h6 class="mt-4 mb-3 text-info">Signal Changeover History (ARIMA)</h6>
                     <div class="table-responsive mb-4">
                         <table class="table table-dark table-sm table-hover">
@@ -225,9 +246,12 @@
                             </thead>
                             <tbody>
                                 {% for signal in comparison.ARIMA.changeover_signals %}
-                                <tr style="font-size: 0.85rem;" class="js-signal-row" data-start="{{ signal.time }}" data-end="{{ signal.end_time }}">
-                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
-                                    <td><span class="js-local-time" data-utc="{{ signal.end_time }}">{{ signal.end_time }}</span></td>
+                                <tr style="font-size: 0.85rem;" class="js-signal-row" data-start="{{ signal.time }}"
+                                    data-end="{{ signal.end_time }}">
+                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time
+                                            }}</span></td>
+                                    <td><span class="js-local-time" data-utc="{{ signal.end_time }}">{{ signal.end_time
+                                            }}</span></td>
                                     <td class="text-center js-duration">{{ signal.duration|default:"---" }}</td>
                                     <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
                                     <td class="text-end">{{ signal.last_close|default:"---" }}</td>
@@ -235,7 +259,9 @@
                                     <td class="text-end text-{{ signal.pnl_class }}">{{ signal.profit_loss }}</td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="7" class="text-center text-muted">No signal changes detected.</td></tr>
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">No signal changes detected.</td>
+                                </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -260,18 +286,22 @@
                             <tbody>
                                 {% for signal in comparison.ARIMA.signals %}
                                 <tr style="font-size: 0.85rem;">
-                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
+                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time
+                                            }}</span></td>
                                     <td class="text-muted" style="font-size: 0.7rem;">{{ signal.run_id }}</td>
                                     <td class="text-end">{{ signal.last_close|default:"---" }}</td>
-                                    <td class="text-end">{{ signal.pred_next|default:signal.predicted|default:"---" }}</td>
+                                    <td class="text-end">{{ signal.pred_next|default:"---" }}</td>
                                     <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
-                                    <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
+                                    <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span>
+                                    </td>
                                     <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
                                     <td class="text-end">{{ signal.mse }}</td>
                                     <td class="text-end">{{ signal.mae }}</td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="9" class="text-center text-muted">No signal history found.</td></tr>
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted">No signal history found.</td>
+                                </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -285,7 +315,9 @@
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                 <div>
                     <h5 class="mb-1">Discuss this model with our team</h5>
-                    <p class="text-muted mb-0">For strategy, integration, or research support: <a href="mailto:collaboration@quantbots.co" class="text-white">collaboration@quantbots.co</a></p>
+                    <p class="text-muted mb-0">For strategy, integration, or research support: <a
+                            href="mailto:collaboration@quantbots.co" class="text-white">collaboration@quantbots.co</a>
+                    </p>
                 </div>
                 <a href="mailto:collaboration@quantbots.co" class="btn btn-outline-light">Talk to Quantbots</a>
             </div>
@@ -306,7 +338,7 @@
             const days = Math.floor(seconds / 86400);
             const hours = Math.floor((seconds % 86400) / 3600);
             const minutes = Math.floor((seconds % 3600) / 60);
-            
+
             let parts = [];
             if (days > 0) parts.push(`${days}d`);
             if (hours > 0) parts.push(`${hours}h`);
@@ -333,13 +365,13 @@
             const start = parseToDate(row.dataset.start);
             let end = parseToDate(row.dataset.end);
             const durationEl = row.querySelector(".js-duration");
-            
+
             if (!start || !durationEl) return;
-            
+
             if (!end && row.dataset.end === "Active") {
                 end = new Date(); // Current time for active signals
             }
-            
+
             if (end) {
                 const diff = end - start;
                 // Simple duration formatter for JS
@@ -359,4 +391,5 @@
     </script>
     {% include "statcounter.html" %}
 </body>
+
 </html>

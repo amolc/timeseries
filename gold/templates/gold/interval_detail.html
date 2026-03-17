@@ -275,7 +275,7 @@
                                 <tr style="font-size: 0.85rem;">
                                     <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
                                     <td class="text-end">{{ signal.last_close|default:"---" }}</td>
-                                    <td class="text-end">{{ signal.pred_next|default:signal.predicted|default:"---" }}</td>
+                                    <td class="text-end">{{ signal.pred_next|default:"---" }}</td>
                                     <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
                                     <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
                                     <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>

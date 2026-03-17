@@ -1,6 +1,7 @@
 {% load custom_filters %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,23 +17,28 @@
             --positive: #00ff00;
             --negative: #ff4d4d;
         }
+
         body {
             background-color: var(--dark-bg);
             color: white;
             font-family: 'Inter', sans-serif;
         }
+
         .navbar {
             background-color: rgba(13, 13, 13, 0.9);
             backdrop-filter: blur(10px);
             border-bottom: 1px solid #3a4558;
         }
+
         .detail-container {
             padding-top: 100px;
             padding-bottom: 80px;
         }
+
         .text-muted {
             color: var(--text-muted) !important;
         }
+
         .analytics-card {
             background-color: var(--card-bg);
             border: 1px solid #3a4558;
@@ -40,12 +46,14 @@
             padding: 20px;
             overflow: hidden;
         }
+
         .chart-container {
             background-color: var(--card-bg);
             border: 1px solid #3a4558;
             border-radius: 24px;
             padding: 24px;
         }
+
         .forecast-box {
             background: linear-gradient(145deg, #1a1a1a 0%, #252525 100%);
             border: 1px solid var(--arima-blue);
@@ -53,49 +61,65 @@
             padding: 24px;
             text-align: center;
         }
+
         .forecast-value {
             font-size: 2.4rem;
             font-weight: 800;
             color: var(--arima-blue);
         }
+
         .btn-back {
             color: var(--text-muted);
             text-decoration: none;
         }
+
         .btn-back:hover {
             color: white;
         }
+
         .table-dark {
             --bs-table-bg: #11151d;
             --bs-table-striped-bg: #171d28;
             --bs-table-hover-bg: #1e2532;
         }
+
         .switcher .btn.model-arima.active {
             background: var(--arima-blue);
             color: #fff;
             border-color: var(--arima-blue);
         }
+
         .timeline-pill {
             background: #141821;
             border: 1px solid #3a4558;
             color: #d4dbe6;
         }
+
         .timeline-pill.active {
             background: var(--arima-blue);
             color: #fff;
             border-color: var(--arima-blue);
         }
+
         .asset-price {
             font-size: 2.2rem;
             font-weight: 800;
             line-height: 1.1;
         }
-        .positive { color: var(--positive); }
-        .negative { color: var(--negative); }
+
+        .positive {
+            color: var(--positive);
+        }
+
+        .negative {
+            color: var(--negative);
+        }
+
         .x-small {
             font-size: 0.75rem;
             color: var(--text-muted);
         }
+
         .roi-chart-wrap {
             max-width: 100%;
             overflow: hidden;
@@ -107,11 +131,13 @@
         }
     </style>
 </head>
+
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
         <div class="container">
             <a class="navbar-brand fw-bold" href="/">Intelligence.quantbots.co</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarInner" aria-controls="navbarInner" aria-expanded="false" aria-label="Toggle navigation">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarInner"
+                aria-controls="navbarInner" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarInner">
@@ -144,13 +170,15 @@
                     {{ running_call_side }} Call: ${{ running_call_value }}
                     at <span class="js-local-time" data-utc="{{ running_call_time }}">{{ running_call_time }}</span>
                 </div>
-                <div class="x-small mt-1">As of: <span class="js-local-time" data-utc="{{ latest_price_as_of }}">{{ latest_price_as_of }}</span> UTC</div>
+                <div class="x-small mt-1">As of: <span class="js-local-time" data-utc="{{ latest_price_as_of }}">{{
+                        latest_price_as_of }}</span> UTC</div>
             </div>
         </div>
 
         <div class="row mb-2">
             <div class="col-lg-8">
-                <h1 class="mb-1">{{ asset_name }} {{ interval|upper }} <span style="color:#7d8ca4;">|</span> ARIMA Forecasting</h1>
+                <h1 class="mb-1">{{ asset_name }} {{ interval|upper }} <span style="color:#7d8ca4;">|</span> ARIMA
+                    Forecasting</h1>
                 <p class="text-muted mb-0">Dedicated forecast view with complete signal and run history.</p>
             </div>
         </div>
@@ -159,14 +187,16 @@
             <div class="col-lg-6">
                 <div class="d-flex flex-wrap gap-2 align-items-center switcher">
                     <span class="text-muted small me-2">MODEL:</span>
-                    <a href="{% url 'usoil:interval_detail_arima' interval %}" class="btn btn-sm btn-outline-light model-arima active">ARIMA Forecasting</a>
+                    <a href="{% url 'usoil:interval_detail_arima' interval %}"
+                        class="btn btn-sm btn-outline-light model-arima active">ARIMA Forecasting</a>
                 </div>
             </div>
             <div class="col-lg-6">
                 <div class="d-flex flex-wrap gap-2 align-items-center justify-content-lg-end">
                     <span class="text-muted small me-2">TIMELINE:</span>
                     {% for intv in available_intervals %}
-                    <a href="{% url 'usoil:interval_detail_arima' intv %}" class="btn btn-sm timeline-pill {% if intv == interval %}active{% endif %}">{{ intv|upper }}</a>
+                    <a href="{% url 'usoil:interval_detail_arima' intv %}"
+                        class="btn btn-sm timeline-pill {% if intv == interval %}active{% endif %}">{{ intv|upper }}</a>
                     {% endfor %}
                 </div>
             </div>
@@ -191,7 +221,8 @@
                         <span class="badge bg-{{ forecast_signal_class }} px-3 py-2">{{ forecast_signal }}</span>
                     </div>
                     <div class="text-muted small mt-2">Model: ARIMA</div>
-                    <div class="text-muted small">Last run: <span class="js-local-time" data-utc="{{ last_run_time }}">{{ last_run_time }}</span></div>
+                    <div class="text-muted small">Last run: <span class="js-local-time"
+                            data-utc="{{ last_run_time }}">{{ last_run_time }}</span></div>
                 </div>
                 <div class="analytics-card">
                     <div class="text-muted small mb-1">ROI Projection</div>
@@ -214,12 +245,14 @@
                 <div class="analytics-card border-primary" style="border-width: 2px;">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5 class="mb-0">Signal Changeover History (ARIMA)</h5>
-                        <span class="badge {% if comparison.ARIMA.profit_val > 0 %}bg-success{% elif comparison.ARIMA.profit_val < 0 %}bg-danger{% else %}bg-primary{% endif %}">
-                            {% if comparison.ARIMA.profit_val > 0 %}Profit{% elif comparison.ARIMA.profit_val < 0 %}Loss{% else %}Net{% endif %}: {{ comparison.ARIMA.profit }} pts
-                        </span>
+                        <span
+                            class="badge {% if comparison.ARIMA.profit_val > 0 %}bg-success{% elif comparison.ARIMA.profit_val < 0 %}bg-danger{% else %}bg-primary{% endif %}">
+                            {% if comparison.ARIMA.profit_val > 0 %}Profit{% elif comparison.ARIMA.profit_val < 0
+                                %}Loss{% else %}Net{% endif %}: {{ comparison.ARIMA.profit }} pts </span>
                     </div>
-                    <div class="text-muted small mb-3">Historical Win Rate: <strong class="text-white">{{ comparison.ARIMA.win_rate }}</strong></div>
-                    
+                    <div class="text-muted small mb-3">Historical Win Rate: <strong class="text-white">{{
+                            comparison.ARIMA.win_rate }}</strong></div>
+
                     <div class="table-responsive">
                         <table class="table table-dark table-sm table-hover">
                             <thead>
@@ -235,9 +268,12 @@
                             </thead>
                             <tbody>
                                 {% for signal in comparison.ARIMA.changeover_signals %}
-                                <tr style="font-size: 0.85rem;" class="js-signal-row" data-start="{{ signal.time }}" data-end="{{ signal.end_time }}">
-                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
-                                    <td><span class="js-local-time" data-utc="{{ signal.end_time }}">{{ signal.end_time }}</span></td>
+                                <tr style="font-size: 0.85rem;" class="js-signal-row" data-start="{{ signal.time }}"
+                                    data-end="{{ signal.end_time }}">
+                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time
+                                            }}</span></td>
+                                    <td><span class="js-local-time" data-utc="{{ signal.end_time }}">{{ signal.end_time
+                                            }}</span></td>
                                     <td class="text-center js-duration">{{ signal.duration|default:"---" }}</td>
                                     <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
                                     <td class="text-end">{{ signal.last_close|default:"---" }}</td>
@@ -245,7 +281,9 @@
                                     <td class="text-end text-{{ signal.pnl_class }}">{{ signal.profit_loss }}</td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="7" class="text-center text-muted">No signal changes detected.</td></tr>
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">No signal changes detected.</td>
+                                </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -274,18 +312,22 @@
                             <tbody>
                                 {% for signal in comparison.ARIMA.signals %}
                                 <tr style="font-size: 0.85rem;">
-                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
+                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time
+                                            }}</span></td>
                                     <td class="text-end">{{ signal.last_close|default:"---" }}</td>
-                                    <td class="text-end">{{ signal.pred_next|default:signal.predicted|default:"---" }}</td>
+                                    <td class="text-end">{{ signal.pred_next|default:"---" }}</td>
                                     <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
-                                    <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span></td>
+                                    <td><span class="text-{{ signal.result_class }} fw-bold">{{ signal.result }}</span>
+                                    </td>
                                     <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
                                     <td class="text-end">{{ signal.mse }}</td>
                                     <td class="text-end">{{ signal.mae }}</td>
                                     <td class="text-end text-muted small">{{ signal.run_id }}</td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="9" class="text-center text-muted">No signal history found.</td></tr>
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted">No signal history found.</td>
+                                </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -299,7 +341,9 @@
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                 <div>
                     <h5 class="mb-1">Discuss this model with our team</h5>
-                    <p class="text-muted mb-0">For strategy, integration, or research support: <a href="mailto:collaboration@quantbots.co" class="text-white">collaboration@quantbots.co</a></p>
+                    <p class="text-muted mb-0">For strategy, integration, or research support: <a
+                            href="mailto:collaboration@quantbots.co" class="text-white">collaboration@quantbots.co</a>
+                    </p>
                 </div>
                 <a href="mailto:collaboration@quantbots.co" class="btn btn-outline-light">Talk to Quantbots</a>
             </div>
@@ -320,7 +364,7 @@
             const days = Math.floor(seconds / 86400);
             const hours = Math.floor((seconds % 86400) / 3600);
             const minutes = Math.floor((seconds % 3600) / 60);
-            
+
             let parts = [];
             if (days > 0) parts.push(`${days}d`);
             if (hours > 0) parts.push(`${hours}h`);
@@ -347,13 +391,13 @@
             const start = parseToDate(row.dataset.start);
             let end = parseToDate(row.dataset.end);
             const durationEl = row.querySelector(".js-duration");
-            
+
             if (!start || !durationEl) return;
-            
+
             if (!end && row.dataset.end === "Active") {
                 end = new Date(); // Current time for active signals
             }
-            
+
             if (end) {
                 const diff = end - start;
                 const formatted = formatDuration(diff);
@@ -365,4 +409,5 @@
     </script>
     {% include "statcounter.html" %}
 </body>
+
 </html>
