@@ -253,10 +253,8 @@
                                 {% for signal in comparison.ARIMA.changeover_signals %}
                                 <tr style="font-size: 0.85rem;" class="js-signal-row" data-start="{{ signal.time }}"
                                     data-end="{{ signal.end_time }}">
-                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time
-                                            }}</span></td>
-                                    <td><span class="js-local-time" data-utc="{{ signal.end_time }}">{{ signal.end_time
-                                            }}</span></td>
+                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
+                                    <td><span class="js-local-time" data-utc="{{ signal.end_time }}">{{ signal.end_time }}</span></td>
                                     <td class="text-center js-duration">{{ signal.duration|default:"---" }}</td>
                                     <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
                                     <td class="text-end">{{ signal.last_close|default:"---" }}</td>
@@ -297,8 +295,7 @@
                             <tbody>
                                 {% for signal in comparison.ARIMA.signals %}
                                 <tr style="font-size: 0.85rem;">
-                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time
-                                            }}</span></td>
+                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
                                     <td class="text-end">{{ signal.last_close|default:"---" }}</td>
                                     <td class="text-end">{{ signal.pred_next|default:"---" }}</td>
                                     <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>

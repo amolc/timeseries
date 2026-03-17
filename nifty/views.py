@@ -565,7 +565,8 @@ def _interval_detail(request, interval, model_key="ARIMA"):
             height=500,
             xaxis_rangeslider_visible=False,
             margin=dict(l=0, r=0, t=30, b=0),
-            title=f"Nifty 50 {interval} Technical Analysis"
+            title=f"Nifty 50 {interval} Technical Analysis",
+            xaxis=dict(rangebreaks=[dict(bounds=["sat", "mon"])]),
         )
         context['chart_html'] = pio.to_html(fig, full_html=False)
         

@@ -238,7 +238,7 @@ def gold_dashboard(request):
             plot_bgcolor='rgba(0,0,0,0)',
             margin=dict(l=0, r=0, t=0, b=0),
             height=400,
-            xaxis=dict(showgrid=False),
+            xaxis=dict(showgrid=False, rangebreaks=[dict(bounds=["sat", "mon"])]),
             yaxis=dict(showgrid=True, gridcolor='#333'),
         )
         
@@ -517,7 +517,8 @@ def _interval_detail(request, interval, model_key="ARIMA"):
             height=500,
             xaxis_rangeslider_visible=False,
             margin=dict(l=0, r=0, t=30, b=0),
-            title=f"Gold {interval} Technical Analysis"
+            title=f"Gold {interval} Technical Analysis",
+            xaxis=dict(rangebreaks=[dict(bounds=["sat", "mon"])]),
         )
         context['chart_html'] = pio.to_html(fig, full_html=False)
         context['drift_score'] = 'Low (0.08)'
