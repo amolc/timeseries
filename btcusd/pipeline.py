@@ -47,6 +47,13 @@ def run_full_pipeline(skip_ingestion=False, models=("lr", "arima"), interval_fil
                 interval_results["arima"] = {"mse": mse, "prediction": pred_next}
         
         pipeline_results[interval] = interval_results
+        
+        # Check and send Telegram alerts if a switchover occurred
+        try:
+            from utils.telegram_notify import check_and_send_switchovers
+            check_and_send_switchovers("BTCUSD", interval)
+        except Exception as e:
+            print(f"Telegram notify failed: {e}")
     
     print(f"\nBTCUSD Pipeline execution complete for {intervals}.")
     return pipeline_results
