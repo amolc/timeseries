@@ -54,26 +54,28 @@ def _fmt_run_timestamp(ms):
 
 
 def _format_duration(start_time_raw, end_time_raw):
+    """Robust duration calculation using pandas and timezone-aware datetimes."""
     try:
         start_ts = pd.to_datetime(start_time_raw, utc=True)
         end_ts = pd.to_datetime(end_time_raw, utc=True)
+        diff = end_ts - start_ts
+        
+        total_seconds = int(diff.total_seconds())
+        if total_seconds < 0:
+            return "---"
+            
+        days, remainder = divmod(total_seconds, 86400)
+        hours, remainder = divmod(remainder, 3600)
+        minutes, _ = divmod(remainder, 60)
+        
+        parts = []
+        if days > 0: parts.append(f"{days}d")
+        if hours > 0: parts.append(f"{hours}h")
+        if minutes >= 0: parts.append(f"{minutes}m")
+        
+        return " ".join(parts) if parts else "0m"
     except Exception:
         return "N/A"
-    if pd.isna(start_ts) or pd.isna(end_ts):
-        return "N/A"
-    delta = end_ts - start_ts
-    if delta.total_seconds() < 0:
-        return "N/A"
-    total_minutes = int(delta.total_seconds() // 60)
-    days, rem_minutes = divmod(total_minutes, 1440)
-    hours, minutes = divmod(rem_minutes, 60)
-    parts = []
-    if days:
-        parts.append(f"{days}d")
-    if hours:
-        parts.append(f"{hours}h")
-    parts.append(f"{minutes}m")
-    return " ".join(parts)
 
 
 def _get_interval_predictions(client, asset_prefix, model_prefix, intervals, latest_price=None):
@@ -422,6 +424,11 @@ def _interval_detail(request, interval, model_override="ARIMA"):
                         
                         if last_close is not None and pred_next is not None:
                             signal = "BUY" if pred_next > last_close else "SELL"
+                            # Prefer manual timestamp from params, fallback to run start
+                            run_time = run.data.params.get('last_record_time')
+                            if not run_time or run_time == "N/A":
+                                run_time = _fmt_run_timestamp(run.info.start_time)
+                                
                             temp_signals.append({
                                 'time': run_time,
                                 'last_close': last_close,

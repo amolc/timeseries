@@ -53,21 +53,24 @@ def _fmt_run_timestamp(ms):
 
 
 def _format_duration(start_time_str, end_time_str):
-    """Calculates duration between two timestamp strings and returns formatted string."""
+    """Robust duration calculation using pandas and timezone-aware datetimes."""
     try:
-        # Expected format: "2024-03-20 15:00:00 UTC"
-        start_dt = datetime.strptime(start_time_str.replace(" UTC", ""), "%Y-%m-%d %H:%M:%S")
-        end_dt = datetime.strptime(end_time_str.replace(" UTC", ""), "%Y-%m-%d %H:%M:%S")
+        start_dt = pd.to_datetime(start_time_str)
+        end_dt = pd.to_datetime(end_time_str)
         diff = end_dt - start_dt
         
-        days = diff.days
-        hours, remainder = divmod(diff.seconds, 3600)
+        total_seconds = int(diff.total_seconds())
+        if total_seconds < 0:
+            return "---"
+            
+        days, remainder = divmod(total_seconds, 86400)
+        hours, remainder = divmod(remainder, 3600)
         minutes, _ = divmod(remainder, 60)
         
         parts = []
         if days > 0: parts.append(f"{days}d")
         if hours > 0: parts.append(f"{hours}h")
-        if minutes > 0: parts.append(f"{minutes}m")
+        if minutes >= 0: parts.append(f"{minutes}m")
         
         return " ".join(parts) if parts else "0m"
     except Exception:
@@ -362,7 +365,12 @@ def _interval_detail(request, interval, model_key="ARIMA"):
                     for run in runs:
                         last_close = _get_last_close_price(run)
                         pred_next = _get_predicted_price(run)
-                        run_time = _fmt_run_timestamp(run.info.start_time)
+                        
+                        # Prefer manual timestamp from params, fallback to run start
+                        run_time = run.data.params.get('last_record_time')
+                        if not run_time or run_time == "N/A":
+                            run_time = _fmt_run_timestamp(run.info.start_time)
+                        
                         metrics = run.data.metrics
                         
                         if last_close is not None and pred_next is not None:

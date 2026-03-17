@@ -52,26 +52,29 @@ def _fmt_run_timestamp(ms):
     return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
-def _format_duration(start_str, end_str):
-    """Helper to format duration between two UTC date strings."""
+def _format_duration(start_time_str, end_time_str):
+    """Robust duration calculation using pandas and timezone-aware datetimes."""
     try:
-        # Expected format: "2024-03-25 14:00:00 UTC"
-        fmt = "%Y-%m-%d %H:%M:%S UTC"
-        start_dt = datetime.strptime(start_str, fmt).replace(tzinfo=timezone.utc)
-        end_dt = datetime.strptime(end_str, fmt).replace(tzinfo=timezone.utc)
+        start_dt = pd.to_datetime(start_time_str)
+        end_dt = pd.to_datetime(end_time_str)
         diff = end_dt - start_dt
         
-        days = diff.days
-        hours, remainder = divmod(diff.seconds, 3600)
+        total_seconds = int(diff.total_seconds())
+        if total_seconds < 0:
+            return "---"
+            
+        days, remainder = divmod(total_seconds, 86400)
+        hours, remainder = divmod(remainder, 3600)
         minutes, _ = divmod(remainder, 60)
         
-        if days > 0:
-            return f"{days}d {hours}h"
-        if hours > 0:
-            return f"{hours}h {minutes}m"
-        return f"{minutes}m"
+        parts = []
+        if days > 0: parts.append(f"{days}d")
+        if hours > 0: parts.append(f"{hours}h")
+        if minutes >= 0: parts.append(f"{minutes}m")
+        
+        return " ".join(parts) if parts else "0m"
     except Exception:
-        return "---"
+        return "N/A"
 
 
 def _get_interval_predictions(client, asset_prefix, model_prefix, intervals, latest_price=None):
@@ -412,7 +415,7 @@ def _interval_detail(request, interval, model_key="ARIMA"):
                         row["profit_loss"] = f"{pnl:+,.2f}"
                         row["profit_loss_val"] = pnl
                         row["pnl_class"] = "success" if pnl > 0 else "danger"
-                        row["result"] = "PROFIT" if pnl > 0 else "LOSS"
+                        row["result"] = "WIN" if pnl > 0 else "LOSS"
                         
                         total_profit += pnl
                         if pnl > 0: wins += 1
