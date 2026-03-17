@@ -53,6 +53,29 @@ def _fmt_run_timestamp(ms):
     return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
+def _format_duration(start_time_raw, end_time_raw):
+    try:
+        start_ts = pd.to_datetime(start_time_raw, utc=True)
+        end_ts = pd.to_datetime(end_time_raw, utc=True)
+    except Exception:
+        return "N/A"
+    if pd.isna(start_ts) or pd.isna(end_ts):
+        return "N/A"
+    delta = end_ts - start_ts
+    if delta.total_seconds() < 0:
+        return "N/A"
+    total_minutes = int(delta.total_seconds() // 60)
+    days, rem_minutes = divmod(total_minutes, 1440)
+    hours, minutes = divmod(rem_minutes, 60)
+    parts = []
+    if days:
+        parts.append(f"{days}d")
+    if hours:
+        parts.append(f"{hours}h")
+    parts.append(f"{minutes}m")
+    return " ".join(parts)
+
+
 def _get_interval_predictions(client, asset_prefix, model_prefix, intervals, latest_price=None):
     predictions = {}
     for interval in intervals:
@@ -278,169 +301,358 @@ def last_price_api(request):
     status = 200 if response.get("ok") else 503
     return JsonResponse(response, status=status)
 
-def _interval_detail(request, interval, model_key="ARIMA"):
-    processed_file = PROJECT_ROOT / "paxusd" / "data" / "processed" / f"paxusd_{interval}_processed.csv"
-    normalized_model = model_key.upper()
+def _interval_detail(request, interval, model_override="ARIMA"):
     selected_model = "ARIMA"
     selected_model_label = "ARIMA"
-    
+
+    processed_file = PROJECT_ROOT / "paxusd" / "data" / "processed" / f"paxusd_{interval}_processed.csv"
     context = {
-        'interval': interval,
-        'asset_name': 'PAXUSD',
-        'forecast_price': "N/A",
-        'last_run_time': 'N/A',
-        'selected_model': selected_model,
-        'selected_model_label': selected_model_label,
+        "interval": interval,
+        "asset_name": "PAXUSD",
+        "available_intervals": ["1h", "1d", "1w", "1m"],
+        "forecast_price": "N/A",
+        "forecast_signal": "N/A",
+        "forecast_signal_class": "secondary",
+        "last_run_time": "N/A",
+        "latest_price": "N/A",
+        "latest_price_change": "N/A",
+        "latest_price_pct": "N/A",
+        "latest_price_is_positive": True,
+        "latest_price_as_of": "N/A",
+        "running_signal_label": "N/A",
+        "running_signal_class": "secondary",
+        "running_call_value": "N/A",
+        "running_call_time": "N/A",
+        "running_call_side": "N/A",
+        "running_profit": "N/A",
+        "running_profit_class": "secondary",
+        "selected_model": selected_model,
+        "selected_model_label": selected_model_label,
+        "chart_html": "",
+        "comparison": {},
+        "drift_score": "Stable",
+        "ab_test_result": "No recent runs yet",
+        "roi_estimate": "N/A",
+        "roi_chart_html": "",
+        "roi_chart_label": "",
     }
-    
-    if processed_file.exists():
-        df = pd.read_csv(processed_file, index_col=0, parse_dates=True)
-        
-        # Latest data
-        latest_price = df['Close'].iloc[-1]
-        context['latest_price'] = f"{latest_price:,.2f}"
-        
-        # Get Forecast from MLflow
-        try:
-            client = MlflowClient()
-            experiment = client.get_experiment_by_name(f"PAXUSD_{selected_model}_{interval}")
-            if experiment:
-                runs = client.search_runs(
-                    experiment_ids=[experiment.experiment_id],
-                    order_by=["attributes.start_time DESC"],
-                    max_results=200
-                )
-                if runs:
-                    latest_run = runs[0]
-                    pred_value = _get_predicted_price(latest_run)
-                    if pred_value is not None:
-                        context['forecast_price'] = f"{pred_value:,.2f}"
-                    context['last_run_time'] = latest_run.data.params.get('last_record_time', 'N/A')
-        except Exception as e:
-            print(f"Error fetching forecast: {e}")
 
-        # Real ROI & Model (ARIMA Only)
+    if not processed_file.exists():
+        return render(request, "paxusd/interval_detail.html", context)
+
+    df = pd.read_csv(processed_file, index_col=0, parse_dates=True)
+    if df.empty:
+        return render(request, "paxusd/interval_detail.html", context)
+
+    # Use the same live/fallback payload as the public API so header price stays current.
+    latest_price_payload = get_last_price_payload("paxusd_interval_detail", "PAXUSD", processed_file)
+    if latest_price_payload.get("ok"):
+        context["latest_price"] = latest_price_payload.get("latest_price", context["latest_price"])
+        context["latest_price_change"] = latest_price_payload.get("price_change", context["latest_price_change"])
+        context["latest_price_pct"] = latest_price_payload.get("pct_change", context["latest_price_pct"])
+        context["latest_price_is_positive"] = bool(latest_price_payload.get("is_positive", True))
+        context["latest_price_as_of"] = latest_price_payload.get("as_of", context["latest_price_as_of"])
         try:
-            client = MlflowClient()
-            experiments = {
-                "ARIMA": f"PAXUSD_ARIMA_{interval}"
+            latest_price = float(str(context["latest_price"]).replace(",", ""))
+        except (TypeError, ValueError):
+            latest_price = float(df["Close"].iloc[-1])
+            context["latest_price"] = f"{latest_price:,.2f}"
+    else:
+        latest_price = float(df["Close"].iloc[-1])
+        context["latest_price"] = f"{latest_price:,.2f}"
+
+    chart_window = min(len(df), 300)
+    fig = go.Figure()
+    fig.add_trace(go.Candlestick(
+        x=df.index[-chart_window:],
+        open=df["Open"].iloc[-chart_window:],
+        high=df["High"].iloc[-chart_window:],
+        low=df["Low"].iloc[-chart_window:],
+        close=df["Close"].iloc[-chart_window:],
+        name="Market Data",
+    ))
+    if "MA7" in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df.index[-chart_window:],
+            y=df["MA7"].iloc[-chart_window:],
+            mode="lines",
+            name="MA7",
+            line=dict(color="rgba(255,215,0,0.5)", width=1),
+        ))
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        height=520,
+        xaxis_rangeslider_visible=False,
+        margin=dict(l=0, r=0, t=30, b=0),
+    )
+    context["chart_html"] = pio.to_html(fig, full_html=False)
+
+    try:
+        from mlflow.tracking import MlflowClient
+        client = MlflowClient()
+        experiments = {
+            "ARIMA": f"PAXUSD_ARIMA_{interval}",
+        }
+
+        comparison_data = {
+            "ARIMA": {"profit": "N/A", "win_rate": "N/A", "signals": [], "changeover_signals": [], "runs": [], "run_count": 0, "curve": []},
+        }
+
+        for model_key, exp_name in experiments.items():
+            exp = client.get_experiment_by_name(exp_name)
+            if not exp:
+                continue
+
+            runs = client.search_runs(
+                experiment_ids=[exp.experiment_id],
+                order_by=["attributes.start_time DESC"],
+                max_results=200,
+            )
+            if not runs:
+                continue
+
+            wins = 0
+            total_resolved = 0
+            total_profit = 0.0
+            signals = []
+            temp_signals = []
+            run_rows = []
+
+            for run in runs:
+                last_close = _get_last_close_price(run)
+                pred_next = _get_predicted_price(run)
+                run_time = run.data.params.get("last_record_time")
+                if not run_time or run_time == "N/A":
+                    run_time = _fmt_run_timestamp(run.info.start_time)
+                
+                metrics = run.data.metrics
+                mae_value = metrics.get("mae")
+                mse_value = metrics.get("mse")
+
+                if last_close is not None and pred_next is not None:
+                    delta = pred_next - last_close
+                    delta_pct = (delta / last_close * 100) if last_close else 0.0
+                    signal = "BUY" if pred_next > last_close else "SELL"
+                    temp_signals.append({
+                        "time": run_time,
+                        "last_close": last_close,
+                        "pred_next": pred_next,
+                        "signal": signal,
+                        "run_id": run.info.run_id[:8],
+                        "mse": f"{mse_value:,.2f}" if mse_value is not None else "N/A",
+                        "mae": f"{mae_value:,.2f}" if mae_value is not None else "N/A",
+                    })
+                    run_rows.append({
+                        "time": run_time,
+                        "last_close": f"{last_close:,.2f}",
+                        "pred_next": f"{pred_next:,.2f}",
+                        "actual_next": "N/A",
+                        "delta": f"{delta:+,.2f}",
+                        "delta_pct": f"{delta_pct:+.2f}%",
+                        "signal": signal,
+                        "signal_class": "success" if signal == "BUY" else "danger",
+                        "run_id": run.info.run_id[:8],
+                    })
+
+            # Newest run has no realized actual yet; older runs use the next observed close.
+            for idx in range(1, len(temp_signals)):
+                run_rows[idx]["actual_next"] = f"{temp_signals[idx - 1]['last_close']:,.2f}"
+
+            # Include the newest run in signal history as PENDING when actual is not available yet.
+            for idx, curr in enumerate(temp_signals):
+                baseline_close = curr["last_close"]
+                delta = curr["pred_next"] - baseline_close
+                delta_pct = (delta / baseline_close * 100) if baseline_close else 0.0
+                signal_row = {
+                    "time": curr["time"],
+                    "last_close": f"{baseline_close:,.2f}",
+                    "pred_next": f"{curr['pred_next']:,.2f}",
+                    "predicted": f"{curr['pred_next']:,.2f}",
+                    "delta": f"{delta:+,.2f}",
+                    "delta_pct": f"{delta_pct:+.2f}%",
+                    "signal": curr["signal"],
+                    "signal_class": "success" if curr["signal"] == "BUY" else "danger",
+                    "run_id": curr["run_id"],
+                    "mse": curr.get("mse", "N/A"),
+                    "mae": curr.get("mae", "N/A"),
+                }
+
+                if idx == 0:
+                    signal_row.update({
+                        "actual_next": "N/A",
+                        "actual_delta": "N/A",
+                        "result": "PENDING",
+                        "result_class": "warning",
+                        "profit": "N/A",
+                    })
+                    signals.append(signal_row)
+                    continue
+
+                next_actual = temp_signals[idx - 1]["last_close"]
+                actual_delta = next_actual - curr["last_close"]
+                points = abs(next_actual - curr["last_close"])
+                if points == 0:
+                    outcome = "DRAW"
+                    outcome_class = "secondary"
+                    profit = 0.0
+                else:
+                    is_win = (curr["signal"] == "BUY" and actual_delta > 0) or (curr["signal"] == "SELL" and actual_delta < 0)
+                    outcome = "WIN" if is_win else "LOSS"
+                    outcome_class = "success" if is_win else "danger"
+                    profit = points if is_win else -points
+                    if is_win:
+                        wins += 1
+                total_resolved += 1
+                total_profit += profit
+
+                signal_row.update({
+                    "actual_next": f"{next_actual:,.2f}",
+                    "actual_delta": f"{actual_delta:+,.2f}",
+                    "result": outcome,
+                    "result_class": outcome_class,
+                    "profit": f"{profit:+,.2f}",
+                    "profit_val": profit,
+                })
+                signals.append(signal_row)
+
+            # Changeover Logic: Identify when the signal direction flips.
+            # We work forwards in time (ASC) to find the start of each new signal.
+            temp_signals_asc = list(reversed(temp_signals))
+            changeovers = []
+            if temp_signals_asc:
+                current_co = temp_signals_asc[0]
+                changeovers.append(current_co)
+                for i in range(1, len(temp_signals_asc)):
+                    if temp_signals_asc[i]["signal"] != current_co["signal"]:
+                        current_co = temp_signals_asc[i]
+                        changeovers.append(current_co)
+            
+            # Now we have changeovers in ASC order. Reverse to DESC for display (latest first).
+            changeovers.reverse()
+
+            formatted_changeovers = []
+            for i in range(len(changeovers)):
+                co = changeovers[i]
+                row = {
+                    "run_id": co["run_id"],
+                    "time": co["time"], # Matches template {{ signal.time }}
+                    "last_close": f"{co['last_close']:,.2f}", # Matches template {{ signal.last_close }}
+                    "signal": co["signal"],
+                    "signal_class": "success" if co["signal"] == "BUY" else "danger",
+                    "end_time": "Active",
+                    "end_price": "---",
+                    "duration": "---",
+                    "profit_loss": "---", # Matches template {{ signal.profit_loss }}
+                    "pnl_class": "secondary", # Matches template {{ signal.pnl_class }}
+                    "result": "OPEN",
+                }
+                if i > 0:
+                    # The signal that happened AFTER this one (since changeovers is DESC)
+                    # newer_co is the one that terminated 'co'
+                    newer_co = changeovers[i-1]
+                    row["end_time"] = newer_co["time"]
+                    row["end_price"] = f"{newer_co['last_close']:,.2f}"
+                    row["duration"] = _format_duration(co["time"], newer_co["time"])
+                    
+                    # Duration and P/L
+                    pnl = (newer_co["last_close"] - co["last_close"]) if co["signal"] == "BUY" else (co["last_close"] - newer_co["last_close"])
+                    row["profit_loss"] = f"{pnl:+,.2f}"
+                    row["profit_loss_val"] = pnl
+                    row["pnl_class"] = "success" if pnl > 0 else "danger"
+                    row["result"] = "PROFIT" if pnl > 0 else "LOSS"
+                else:
+                    # For the latest/active signal, we can calculate running duration from now
+                    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                    row["duration"] = _format_duration(co["time"], now_str)
+                
+                formatted_changeovers.append(row)
+
+            win_rate_val = (wins / total_resolved * 100) if total_resolved > 0 else 0
+            comparison_data[model_key] = {
+                "profit": f"{total_profit:+,.2f}",
+                "profit_val": total_profit,
+                "win_rate": f"{win_rate_val:.1f}%",
+                "signals": signals[:40],
+                "changeover_signals": formatted_changeovers[:20],
+                "curve": [], # Reserved for future equity curve
             }
-            
-            comparison_data = {}
-            for model_key, exp_name in experiments.items():
-                exp = client.get_experiment_by_name(exp_name)
-                if exp:
-                    runs = client.search_runs(
-                        experiment_ids=[exp.experiment_id],
-                        order_by=["attributes.start_time DESC"],
-                        max_results=200
-                    )
-                    
-                    signals = []
-                    wins = 0
-                    total_resolved = 0
-                    total_profit = 0.0
-                    
-                    # Convert runs to signals for processing
-                    temp_signals = []
-                    for run in runs:
-                        last_close = _get_last_close_price(run)
-                        pred_next = _get_predicted_price(run)
-                        run_time = run.data.params.get('last_record_time', 'N/A')
-                        metrics = run.data.metrics
-                        
-                        if last_close is not None and pred_next is not None:
-                            signal = "BUY" if pred_next > last_close else "SELL"
-                            temp_signals.append({
-                                'time': run_time,
-                                'last_close': last_close,
-                                'pred_next': pred_next,
-                                'signal': signal,
-                                'mae': metrics.get("mae"),
-                                'mse': metrics.get("mse"),
-                            })
-                    
-                    # Process signals to determine wins/losses
-                    for i in range(len(temp_signals) - 1):
-                        curr = temp_signals[i+1] # Earlier run
-                        next_actual = temp_signals[i]['last_close'] # Later run
-                        
-                        is_win = False
-                        if curr['signal'] == "BUY":
-                            is_win = next_actual > curr['last_close']
-                        else:
-                            is_win = next_actual <= curr['last_close']
-                        
-                        profit = abs(next_actual - curr['last_close']) if is_win else -abs(next_actual - curr['last_close'])
-                        total_profit += profit
-                        if is_win: wins += 1
-                        total_resolved += 1
-                        
-                        signals.append({
-                            'time': curr['time'],
-                            'last_close': f"{curr['last_close']:,.2f}",
-                            'pred_next': f"{curr['pred_next']:,.2f}",
-                            'predicted': f"{curr['pred_next']:,.2f}",
-                            'signal': curr['signal'],
-                            'signal_class': "success" if curr['signal'] == "BUY" else "danger",
-                            'result': "WIN" if is_win else "LOSS",
-                            'result_class': "success" if is_win else "danger",
-                            'profit': f"{profit:+,.2f}",
-                            'mae': f"{curr['mae']:,.2f}" if curr['mae'] is not None else "N/A",
-                            'mse': f"{curr['mse']:,.2f}" if curr['mse'] is not None else "N/A",
-                        })
 
-                    win_rate = (wins / total_resolved * 100) if total_resolved > 0 else 0
-                    comparison_data[model_key] = {
-                        'profit': f"{total_profit:+,.2f}",
-                        'win_rate': f"{win_rate:.1f}%",
-                        'signals': signals[:20] # Show last 20
+        # Pick the selected model's details for the top forecast box
+        top_model = "ARIMA"
+        if top_model in comparison_data and comparison_data[top_model]["signals"]:
+            latest_sig = comparison_data[top_model]["signals"][0]
+            context["forecast_price"] = latest_sig["pred_next"]
+            context["forecast_signal"] = latest_sig["signal"]
+            context["forecast_signal_class"] = latest_sig["signal_class"]
+            context["last_run_time"] = latest_sig["time"]
+            context["roi_estimate"] = f"{comparison_data[top_model]['win_rate']} Win Rate"
+            context["roi_chart_label"] = f"{top_model} Strategy"
+
+            # Generate ROI Plotly Chart
+            sig_history = [s for s in comparison_data[top_model]["signals"] if s["result"] != "PENDING"]
+            if sig_history:
+                sig_history.reverse()
+                equity = 0
+                x_vals = []
+                y_vals = []
+                for s in sig_history:
+                    equity += s.get("profit_val", 0)
+                    x_vals.append(s["time"])
+                    y_vals.append(equity)
+
+                roi_fig = go.Figure()
+                roi_fig.add_trace(go.Scatter(
+                    x=x_vals, y=y_vals, mode="lines",
+                    fill="tozeroy", line=dict(color="#00ff00" if equity >= 0 else "#ff4d4d", width=2)
+                ))
+                roi_fig.update_layout(
+                    template="plotly_dark",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    margin=dict(l=0, r=0, t=0, b=0),
+                    height=100,
+                    xaxis=dict(visible=False),
+                    yaxis=dict(visible=False),
+                )
+                context["roi_chart_html"] = pio.to_html(roi_fig, full_html=False, config={"displayModeBar": False})
+
+        context["comparison"] = comparison_data
+
+        # Latest active call for the header (from ARIMA)
+        header_call = None
+        for m in ["ARIMA"]:
+            exp = client.get_experiment_by_name(f"PAXUSD_{m}_{interval}")
+            if not exp: continue
+            runs = client.search_runs(experiment_ids=[exp.experiment_id], order_by=["attributes.start_time DESC"], max_results=1)
+            if not runs: continue
+            run = runs[0]
+            p = _get_predicted_price(run)
+            c = _get_last_close_price(run)
+            if p and c:
+                if header_call is None or run.info.start_time > header_call["ts"]:
+                    header_call = {
+                        "ts": run.info.start_time,
+                        "side": "BUY" if p > c else "SELL",
+                        "price": c,
+                        "time": run.data.params.get("last_record_time", "N/A")
                     }
-            
-            if selected_model in comparison_data:
-                context['comparison'] = {selected_model: comparison_data[selected_model]}
-            else:
-                context['comparison'] = {}
-            
-            # Update summary stats with real data if available
-            if selected_model in comparison_data:
-                context['roi_estimate'] = f"{comparison_data[selected_model]['win_rate']} Win Rate"
-                context['ab_test_result'] = f"{selected_model} ({comparison_data[selected_model]['profit']} pts)"
+        if header_call:
+            context["running_call_side"] = header_call["side"]
+            context["running_call_value"] = f"{header_call['price']:,.2f}"
+            context["running_call_time"] = header_call["time"]
+            context["running_signal_label"] = f"{header_call['side']} (Live)"
+            context["running_signal_class"] = "success" if header_call["side"] == "BUY" else "danger"
+            if latest_price:
+                pnl = (latest_price - header_call["price"]) if header_call["side"] == "BUY" else (header_call["price"] - latest_price)
+                context["running_profit"] = f"{pnl:+,.2f}"
+                context["running_profit_class"] = "success" if pnl > 0 else "danger"
 
-        except Exception as e:
-            print(f"Error fetching ROI data: {e}")
-            context['comparison'] = {}
+    except Exception as e:
+        print(f"Error in PAXUSD _interval_detail: {e}")
 
-        # Interactive Chart
-        fig = go.Figure()
-        fig.add_trace(go.Candlestick(x=df.index[-100:],
-                open=df['Open'].iloc[-100:],
-                high=df['High'].iloc[-100:],
-                low=df['Low'].iloc[-100:],
-                close=df['Close'].iloc[-100:],
-                name='Market Data'))
-        
-        # Add MA7
-        if 'MA7' in df.columns:
-            fig.add_trace(go.Scatter(x=df.index[-100:], y=df['MA7'].iloc[-100:], 
-                                    mode='lines', name='MA7', line=dict(color='rgba(255,215,0,0.5)', width=1)))
-        
-        fig.update_layout(
-            template='plotly_dark',
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            height=500,
-            xaxis_rangeslider_visible=False,
-            margin=dict(l=0, r=0, t=30, b=0),
-        )
-        context['chart_html'] = pio.to_html(fig, full_html=False)
-        
-        # Additional context for cards
-        context.update({
-            'drift_score': 'Low (0.08)',
-        })
-    
-    return render(request, 'paxusd/interval_detail.html', context)
+    return render(request, "paxusd/interval_detail.html", context)
 
 
 def interval_detail(request, interval):

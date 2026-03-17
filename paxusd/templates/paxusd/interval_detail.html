@@ -166,8 +166,11 @@
                     </div>
                     <div class="col-12">
                         <div class="analytics-card">
-                            <div class="analytics-label">ROI Projection</div>
+                            <div class="analytics-label">ROI Projection ({{ roi_chart_label }})</div>
                             <div class="analytics-value text-success">{{ roi_estimate }}</div>
+                            <div class="mt-2" style="height: 100px; overflow: hidden;">
+                                {{ roi_chart_html|safe }}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -197,17 +200,58 @@
 
         <!-- New Model Performance Section -->
         <h3 class="mt-5 mb-4">{{ selected_model_label }} Performance & Signal History</h3>
-        <div class="row g-4">
-            {% if comparison.ARIMA %}
+        
+        {% if comparison.ARIMA %}
+        <div class="row g-4 mb-4">
             <div class="col-lg-12">
                 <div class="analytics-card border-primary" style="border-width: 2px;">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="mb-0">ARIMA Forecasting</h5>
-                        <span class="badge bg-primary">Profit: {{ comparison.ARIMA.profit }} pts</span>
+                        <h5 class="mb-0">Signal Changeover History (ARIMA)</h5>
+                        <span class="badge {% if comparison.ARIMA.profit_val > 0 %}bg-success{% elif comparison.ARIMA.profit_val < 0 %}bg-danger{% else %}bg-primary{% endif %}">
+                            {% if comparison.ARIMA.profit_val > 0 %}Profit{% elif comparison.ARIMA.profit_val < 0 %}Loss{% else %}Net{% endif %}: {{ comparison.ARIMA.profit }} pts
+                        </span>
                     </div>
                     <div class="analytics-label">Historical Win Rate: <strong>{{ comparison.ARIMA.win_rate }}</strong></div>
                     
-                    <div class="table-responsive mt-3">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-sm table-hover">
+                            <thead>
+                                <tr class="text-muted" style="font-size: 0.75rem;">
+                                    <th>Start Time</th>
+                                    <th>End Time</th>
+                                    <th class="text-center">Duration</th>
+                                    <th>Signal</th>
+                                    <th class="text-end">Start Price</th>
+                                    <th class="text-end">End Price</th>
+                                    <th class="text-end">Profit/Loss</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for signal in comparison.ARIMA.changeover_signals %}
+                                <tr style="font-size: 0.85rem;" class="js-signal-row" data-start="{{ signal.time }}" data-end="{{ signal.end_time }}">
+                                    <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
+                                    <td><span class="js-local-time" data-utc="{{ signal.end_time }}">{{ signal.end_time }}</span></td>
+                                    <td class="text-center js-duration">{{ signal.duration|default:"---" }}</td>
+                                    <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
+                                    <td class="text-end">{{ signal.last_close|default:"---" }}</td>
+                                    <td class="text-end">{{ signal.end_price|default:"---" }}</td>
+                                    <td class="text-end text-{{ signal.pnl_class }}">{{ signal.profit_loss }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="7" class="text-center text-muted">No signal changes detected.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-5">
+            <div class="col-lg-12">
+                <div class="analytics-card border-secondary">
+                    <h5 class="mb-3">Full Signal History (ARIMA)</h5>
+                    <div class="table-responsive">
                         <table class="table table-dark table-sm table-hover">
                             <thead>
                                 <tr class="text-muted" style="font-size: 0.75rem;">
@@ -219,6 +263,7 @@
                                     <th class="text-end">Points</th>
                                     <th class="text-end">MSE</th>
                                     <th class="text-end">MAE</th>
+                                    <th class="text-end">Run ID</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -232,16 +277,32 @@
                                     <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
                                     <td class="text-end">{{ signal.mse }}</td>
                                     <td class="text-end">{{ signal.mae }}</td>
+                                    <td class="text-end text-muted small">{{ signal.run_id }}</td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="8" class="text-center text-muted">No signal history found.</td></tr>
+                                <tr><td colspan="9" class="text-center text-muted">No signal history found.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
-            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- ROI Simulation Note -->
+        <div class="alert alert-dark mt-5 border-secondary" role="alert" style="background-color: #111;">
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <span class="badge bg-warning text-dark">ROI NOTE</span>
+                </div>
+                <div class="col">
+                    <small class="text-muted">
+                        Simulated trading ROI is calculated by comparing predicted signals (BUY/SELL) against subsequent actual close prices. 
+                        Win rates are based on the model's ability to correctly predict the direction of the next period's movement.
+                    </small>
+                </div>
+            </div>
         </div>
 
         <div class="mt-4 p-4 rounded-4" style="background: #141821; border: 1px solid #3a4558;">
@@ -257,20 +318,53 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        function parseToDate(raw) {
+            if (!raw || raw.toUpperCase() === "N/A" || raw === "Active" || raw === "---") return null;
+            raw = raw.replace(" UTC", "").replace(" ", "T");
+            const dt = new Date(raw.endsWith("Z") ? raw : raw + "Z");
+            return Number.isNaN(dt.getTime()) ? null : dt;
+        }
+
+        function formatDuration(ms) {
+            const minutes = Math.floor(ms / 60000);
+            const hours = Math.floor(minutes / 60) ;
+            const days = Math.floor(hours / 24);
+            
+            if (days > 0) return `${days}d ${hours % 24}h`;
+            if (hours > 0) return `${hours}h ${minutes % 60}m`;
+            return `${minutes}m`;
+        }
+
+        // Handle local time conversion
         document.querySelectorAll(".js-local-time").forEach((el) => {
-            const raw = (el.dataset.utc || "").trim();
-            if (!raw || raw.toUpperCase() === "N/A") return;
-            const iso = raw.replace(" ", "T");
-            const dt = new Date(iso.endsWith("Z") ? iso : `${iso}Z`);
-            if (Number.isNaN(dt.getTime())) return;
+            const dt = parseToDate(el.dataset.utc);
+            if (!dt) return;
+            
             el.textContent = dt.toLocaleString(undefined, {
-                year: "numeric",
-                month: "short",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
+                year: "numeric", month: "short", day: "2-digit",
+                hour: "2-digit", minute: "2-digit", second: "2-digit",
             });
+        });
+
+        // Handle duration calculation
+        document.querySelectorAll(".js-signal-row").forEach((row) => {
+            const start = parseToDate(row.dataset.start);
+            let end = parseToDate(row.dataset.end);
+            const durationEl = row.querySelector(".js-duration");
+            
+            if (!start || !durationEl) return;
+            
+            if (!end && row.dataset.end === "Active") {
+                end = new Date(); // Current time for active signals
+            }
+            
+            if (end) {
+                const diff = end - start;
+                const formatted = formatDuration(diff);
+                if (formatted !== "N/A" && formatted !== "0m") {
+                    durationEl.textContent = formatted;
+                }
+            }
         });
     </script>
     {% include "statcounter.html" %}

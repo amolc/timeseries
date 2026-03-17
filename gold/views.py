@@ -52,6 +52,28 @@ def _fmt_run_timestamp(ms):
     return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
+def _format_duration(start_str, end_str):
+    """Helper to format duration between two UTC date strings."""
+    try:
+        # Expected format: "2024-03-25 14:00:00 UTC"
+        fmt = "%Y-%m-%d %H:%M:%S UTC"
+        start_dt = datetime.strptime(start_str, fmt).replace(tzinfo=timezone.utc)
+        end_dt = datetime.strptime(end_str, fmt).replace(tzinfo=timezone.utc)
+        diff = end_dt - start_dt
+        
+        days = diff.days
+        hours, remainder = divmod(diff.seconds, 3600)
+        minutes, _ = divmod(remainder, 60)
+        
+        if days > 0:
+            return f"{days}d {hours}h"
+        if hours > 0:
+            return f"{hours}h {minutes}m"
+        return f"{minutes}m"
+    except Exception:
+        return "---"
+
+
 def _get_interval_predictions(client, asset_prefix, model_prefix, intervals, latest_price=None):
     predictions = {}
     for interval in intervals:
@@ -297,134 +319,194 @@ def _interval_detail(request, interval, model_key="ARIMA"):
     
     if processed_file.exists():
         df = pd.read_csv(processed_file, index_col=0, parse_dates=True)
-        
-        # Latest data
         latest_price = df['Close'].iloc[-1]
         context['latest_price'] = f"{latest_price:,.2f}"
         
-        # Get Forecast from MLflow
-        try:
-            from mlflow.tracking import MlflowClient
-            client = MlflowClient()
-            experiment = client.get_experiment_by_name(f"GOLD_ARIMA_{interval}")
-            if experiment:
-                runs = client.search_runs(
-                    experiment_ids=[experiment.experiment_id],
-                    order_by=["attributes.start_time DESC"],
-                    max_results=20
-                )
-                if runs:
-                    latest_run = runs[0]
-                    pred_value = _get_predicted_price(latest_run)
-                    if pred_value is not None:
-                        context['forecast_price'] = f"{pred_value:,.2f}"
-                    context['last_run_time'] = latest_run.data.params.get('last_record_time', 'N/A')
-        except Exception as e:
-            print(f"Error fetching forecast: {e}")
-
-        # Real ROI & Signal History (ARIMA only)
         try:
             client = MlflowClient()
-            experiments = {
-                "ARIMA": f"GOLD_ARIMA_{interval}"
-            }
-            
+            experiments = {"ARIMA": f"GOLD_ARIMA_{interval}"}
             comparison_data = {}
-            for model_key, exp_name in experiments.items():
+            full_history = []  # Outside loop to avoid unbound error
+            
+            for m_key, exp_name in experiments.items():
                 exp = client.get_experiment_by_name(exp_name)
-                if exp:
-                    runs = client.search_runs(
-                        experiment_ids=[exp.experiment_id],
-                        order_by=["attributes.start_time DESC"],
-                        max_results=200,
-                    )
+                if not exp:
+                    continue
+                
+                runs = client.search_runs(
+                    experiment_ids=[exp.experiment_id],
+                    order_by=["attributes.start_time DESC"],
+                    max_results=200,
+                )
+                
+                temp_signals = []
+                for run in runs:
+                    last_close = _get_last_close_price(run)
+                    pred_next = _get_predicted_price(run)
+                    # Use formatted timestamp helper
+                    run_time = run.data.params.get('last_record_time') or _fmt_run_timestamp(run.info.start_time)
+                    metrics = run.data.metrics
                     
-                    signals = []
-                    wins = 0
-                    total_resolved = 0
-                    total_profit = 0.0
-                    
-                    # Convert runs to signals for processing
-                    temp_signals = []
-                    for run in runs:
-                        last_close = _get_last_close_price(run)
-                        pred_next = _get_predicted_price(run)
-                        run_time = run.data.params.get('last_record_time', 'N/A')
-                        metrics = run.data.metrics
-                        
-                        if last_close is not None and pred_next is not None:
-                            signal = "BUY" if pred_next > last_close else "SELL"
-                            temp_signals.append({
-                                'time': run_time,
-                                'last_close': last_close,
-                                'pred_next': pred_next,
-                                'signal': signal,
-                                'mae': metrics.get("mae"),
-                                'mse': metrics.get("mse"),
-                            })
-                    
-                    # Process signals to determine wins/losses
-                    for i in range(len(temp_signals) - 1):
-                        curr = temp_signals[i+1] # Earlier run
-                        next_actual = temp_signals[i]['last_close'] # Later run
-                        
-                        is_win = False
-                        if curr['signal'] == "BUY":
-                            is_win = next_actual > curr['last_close']
-                        else:
-                            is_win = next_actual <= curr['last_close']
-                        
-                        profit = abs(next_actual - curr['last_close']) if is_win else -abs(next_actual - curr['last_close'])
-                        total_profit += profit
-                        if is_win: wins += 1
-                        total_resolved += 1
-                        
-                        signals.append({
-                            'time': curr['time'],
-                            'last_close': f"{curr['last_close']:,.2f}",
-                            'pred_next': f"{curr['pred_next']:,.2f}",
-                            'predicted': f"{curr['pred_next']:,.2f}",
-                            'signal': curr['signal'],
-                            'signal_class': "success" if curr['signal'] == "BUY" else "danger",
-                            'result': "WIN" if is_win else "LOSS",
-                            'result_class': "success" if is_win else "danger",
-                            'profit': f"{profit:+,.2f}",
-                            'mae': f"{curr['mae']:,.2f}" if curr['mae'] is not None else "N/A",
-                            'mse': f"{curr['mse']:,.2f}" if curr['mse'] is not None else "N/A",
+                    if last_close is not None and pred_next is not None:
+                        temp_signals.append({
+                            'run_id': run.info.run_id[:8],
+                            'time': run_time,
+                            'last_close': last_close,
+                            'pred_next': pred_next,
+                            'signal': "BUY" if pred_next > last_close else "SELL",
+                            'mae': metrics.get("mae"),
+                            'mse': metrics.get("mse"),
                         })
 
-                    win_rate = (wins / total_resolved * 100) if total_resolved > 0 else 0
-                    comparison_data[model_key] = {
-                        'profit': f"{total_profit:+,.2f}",
-                        'win_rate': f"{win_rate:.1f}%",
-                        'signals': signals[:20] # Show last 20
+                # Initialize variables to avoid unbound errors
+                full_history = []
+                formatted_changeovers = []
+                total_profit = 0.0
+                wins = 0
+                total_resolved = 0
+
+                if not temp_signals:
+                    continue
+
+                # 1. Changeover Logic: Identify when signal direction flips (working ASC)
+                temp_signals_asc = list(reversed(temp_signals))
+                changeovers = []
+                if temp_signals_asc:
+                    current_co = temp_signals_asc[0]
+                    changeovers.append(current_co)
+                    for i in range(1, len(temp_signals_asc)):
+                        if temp_signals_asc[i]["signal"] != current_co["signal"]:
+                            current_co = temp_signals_asc[i]
+                            changeovers.append(current_co)
+                
+                # Reverse to DESC for display
+                changeovers.reverse()
+
+                formatted_changeovers = []
+                total_profit = 0.0
+                wins = 0
+                total_resolved = 0
+
+                for i in range(len(changeovers)):
+                    co = changeovers[i]
+                    row = {
+                        "run_id": co["run_id"],
+                        "time": co["time"],
+                        "last_close": f"{co['last_close']:,.2f}",
+                        "signal": co["signal"],
+                        "signal_class": "success" if co["signal"] == "BUY" else "danger",
+                        "end_time": "Active",
+                        "end_price": "---",
+                        "duration": "---",
+                        "profit_loss": "---",
+                        "pnl_class": "secondary",
+                        "result": "OPEN",
                     }
-            
-            context['comparison'] = comparison_data
-            
-            # Update summary stats with real data
+                    if i > 0:
+                        newer_co = changeovers[i-1]
+                        row["end_time"] = newer_co["time"]
+                        row["end_price"] = f"{newer_co['last_close']:,.2f}"
+                        row["duration"] = _format_duration(co["time"], newer_co["time"])
+                        
+                        pnl = (newer_co["last_close"] - co["last_close"]) if co["signal"] == "BUY" else (co["last_close"] - newer_co["last_close"])
+                        row["profit_loss"] = f"{pnl:+,.2f}"
+                        row["profit_loss_val"] = pnl
+                        row["pnl_class"] = "success" if pnl > 0 else "danger"
+                        row["result"] = "PROFIT" if pnl > 0 else "LOSS"
+                        
+                        total_profit += pnl
+                        if pnl > 0: wins += 1
+                        total_resolved += 1
+                    else:
+                        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                        row["duration"] = _format_duration(co["time"], now_str)
+                    
+                    formatted_changeovers.append(row)
+
+                # 2. Full History Logic (Standard next-period comparison)
+                full_history = []
+                for i in range(len(temp_signals)):
+                    curr = temp_signals[i]
+                    row = {
+                        "run_id": curr["run_id"],
+                        "time": curr["time"],
+                        "last_close": f"{curr['last_close']:,.2f}",
+                        "pred_next": f"{curr['pred_next']:,.2f}",
+                        "signal": curr["signal"],
+                        "signal_class": "success" if curr["signal"] == "BUY" else "danger",
+                        "result": "PENDING",
+                        "result_class": "secondary",
+                        "profit": "---",
+                        "mse": f"{curr['mse']:.4f}" if curr['mse'] is not None else "---",
+                        "mae": f"{curr['mae']:.4f}" if curr['mae'] is not None else "---",
+                    }
+                    if i > 0:
+                        prev_actual = temp_signals[i-1]["last_close"]
+                        is_win = (prev_actual > curr["last_close"]) if curr["signal"] == "BUY" else (prev_actual <= curr["last_close"])
+                        p_val = abs(prev_actual - curr["last_close"]) if is_win else -abs(prev_actual - curr["last_close"])
+                        row["result"] = "WIN" if is_win else "LOSS"
+                        row["result_class"] = "success" if is_win else "danger"
+                        row["profit"] = f"{p_val:+,.2f}"
+                        row["profit_val"] = p_val
+                    full_history.append(row)
+
+                win_rate = (wins / total_resolved * 100) if total_resolved > 0 else 0
+                comparison_data[m_key] = {
+                    "profit": f"{total_profit:+,.2f}",
+                    "profit_val": total_profit,
+                    "win_rate": f"{win_rate:.1f}%",
+                    "changeover_signals": formatted_changeovers,
+                    "signals": full_history[:50],
+                }
+
+            context["comparison"] = comparison_data
             if "ARIMA" in comparison_data:
-                context['roi_estimate'] = f"{comparison_data['ARIMA']['win_rate']} Win Rate"
-                context['ab_test_result'] = f"ARIMA ({comparison_data['ARIMA']['profit']} pts)"
+                context["roi_estimate"] = f"{comparison_data['ARIMA']['win_rate']} Win Rate"
+                context["ab_test_result"] = f"ARIMA ({comparison_data['ARIMA']['profit']} pts)"
+                context["forecast_price"] = full_history[0]["pred_next"]
+                context["last_run_time"] = full_history[0]["time"]
+
+                # Generate ROI Plotly Chart
+                sig_history = [s for s in comparison_data["ARIMA"]["changeover_signals"] if s["result"] != "OPEN"]
+                if sig_history:
+                    sig_history.reverse() # Back to chronological for chart
+                    equity = 0
+                    x_vals = []
+                    y_vals = []
+                    for s in sig_history:
+                        equity += s.get("profit_loss_val", 0)
+                        x_vals.append(s["time"])
+                        y_vals.append(equity)
+
+                    roi_fig = go.Figure()
+                    roi_fig.add_trace(go.Scatter(
+                        x=x_vals, y=y_vals, mode="lines",
+                        fill="tozeroy", line=dict(color="#00ff00" if equity >= 0 else "#ff4d4d", width=2)
+                    ))
+                    roi_fig.update_layout(
+                        template="plotly_dark",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        margin=dict(l=0, r=0, t=0, b=0),
+                        height=100,
+                        xaxis=dict(visible=False),
+                        yaxis=dict(visible=False),
+                    )
+                    context["roi_chart_html"] = pio.to_html(roi_fig, full_html=False, config={"displayModeBar": False})
 
         except Exception as e:
-            print(f"Error fetching ROI data: {e}")
-            context['comparison'] = {}
+            print(f"Error in detail view: {e}")
 
-        # Interactive Chart
+        # Candlestick Chart
         fig = go.Figure()
-        fig.add_trace(go.Candlestick(x=df.index[-100:],
-                open=df['Open'].iloc[-100:],
-                high=df['High'].iloc[-100:],
-                low=df['Low'].iloc[-100:],
-                close=df['Close'].iloc[-100:],
-                name='Market Data'))
-        
-        # Add Technical Indicators
-        if 'SMA_20' in df.columns:
-            fig.add_trace(go.Scatter(x=df.index[-100:], y=df['SMA_20'].iloc[-100:], 
-                                    mode='lines', name='SMA 20', line=dict(color='rgba(255,215,0,0.5)', width=1))) # Gold translucent
-        
+        fig.add_trace(go.Candlestick(
+            x=df.index[-100:],
+            open=df['Open'].iloc[-100:],
+            high=df['High'].iloc[-100:],
+            low=df['Low'].iloc[-100:],
+            close=df['Close'].iloc[-100:],
+            name='Market Data'
+        ))
         fig.update_layout(
             template='plotly_dark',
             paper_bgcolor='rgba(0,0,0,0)',
@@ -435,11 +517,7 @@ def _interval_detail(request, interval, model_key="ARIMA"):
             title=f"Gold {interval} Technical Analysis"
         )
         context['chart_html'] = pio.to_html(fig, full_html=False)
-        
-        # Additional context for cards
-        context.update({
-            'drift_score': 'Low (0.08)',
-        })
+        context['drift_score'] = 'Low (0.08)'
     
     return render(request, 'gold/interval_detail.html', context)
 

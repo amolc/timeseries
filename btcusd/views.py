@@ -427,7 +427,10 @@ def _interval_detail(request, interval, model_override="ARIMA"):
             for run in runs:
                 last_close = _get_last_close_price(run)
                 pred_next = _get_predicted_price(run)
-                run_time = run.data.params.get("last_record_time", "N/A")
+                run_time = run.data.params.get("last_record_time")
+                if not run_time or run_time == "N/A":
+                    run_time = _fmt_run_timestamp(run.info.start_time)
+                
                 metrics = run.data.metrics
                 mae_value = metrics.get("mae")
                 mse_value = metrics.get("mse")
@@ -518,43 +521,56 @@ def _interval_detail(request, interval, model_override="ARIMA"):
                 })
                 signals.append(signal_row)
 
-            # Changeover Logic
+            # Changeover Logic: Identify when the signal direction flips.
+            # We work forwards in time (ASC) to find the start of each new signal.
+            temp_signals_asc = list(reversed(temp_signals))
             changeovers = []
-            for i in range(len(temp_signals)):
-                curr = temp_signals[i]
-                if i == len(temp_signals) - 1:
-                    changeovers.append(curr)
-                    break
-                prev = temp_signals[i+1]
-                if curr["signal"] != prev["signal"]:
-                    changeovers.append(curr)
+            if temp_signals_asc:
+                current_co = temp_signals_asc[0]
+                changeovers.append(current_co)
+                for i in range(1, len(temp_signals_asc)):
+                    if temp_signals_asc[i]["signal"] != current_co["signal"]:
+                        current_co = temp_signals_asc[i]
+                        changeovers.append(current_co)
+            
+            # Now we have changeovers in ASC order. Reverse to DESC for display (latest first).
+            changeovers.reverse()
 
             formatted_changeovers = []
             for i in range(len(changeovers)):
                 co = changeovers[i]
                 row = {
                     "run_id": co["run_id"],
-                    "start_time": co["time"],
-                    "start_close": f"{co['last_close']:,.2f}",
+                    "time": co["time"], # Matches template {{ signal.time }}
+                    "last_close": f"{co['last_close']:,.2f}", # Matches template {{ signal.last_close }}
                     "signal": co["signal"],
                     "signal_class": "success" if co["signal"] == "BUY" else "danger",
                     "end_time": "Active",
                     "end_price": "---",
                     "duration": "---",
-                    "profitloss": "---",
+                    "profit_loss": "---", # Matches template {{ signal.profit_loss }}
+                    "pnl_class": "secondary", # Matches template {{ signal.pnl_class }}
                     "result": "OPEN",
-                    "result_class": "warning",
                 }
                 if i > 0:
+                    # The signal that happened AFTER this one (since changeovers is DESC)
+                    # newer_co is the one that terminated 'co'
                     newer_co = changeovers[i-1]
                     row["end_time"] = newer_co["time"]
                     row["end_price"] = f"{newer_co['last_close']:,.2f}"
                     row["duration"] = _format_duration(co["time"], newer_co["time"])
+                    
+                    # Duration and P/L
                     pnl = (newer_co["last_close"] - co["last_close"]) if co["signal"] == "BUY" else (co["last_close"] - newer_co["last_close"])
-                    row["profitloss"] = f"{pnl:+,.2f}"
-                    row["profitloss_val"] = pnl
+                    row["profit_loss"] = f"{pnl:+,.2f}"
+                    row["profit_loss_val"] = pnl
+                    row["pnl_class"] = "success" if pnl > 0 else "danger"
                     row["result"] = "PROFIT" if pnl > 0 else "LOSS"
-                    row["result_class"] = "success" if pnl > 0 else "danger"
+                else:
+                    # For the latest/active signal, we can calculate running duration from now
+                    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                    row["duration"] = _format_duration(co["time"], now_str)
+                
                 formatted_changeovers.append(row)
 
             win_rate_val = (wins / total_resolved * 100) if total_resolved > 0 else 0

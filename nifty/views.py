@@ -52,6 +52,28 @@ def _fmt_run_timestamp(ms):
     return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
+def _format_duration(start_time_str, end_time_str):
+    """Calculates duration between two timestamp strings and returns formatted string."""
+    try:
+        # Expected format: "2024-03-20 15:00:00 UTC"
+        start_dt = datetime.strptime(start_time_str.replace(" UTC", ""), "%Y-%m-%d %H:%M:%S")
+        end_dt = datetime.strptime(end_time_str.replace(" UTC", ""), "%Y-%m-%d %H:%M:%S")
+        diff = end_dt - start_dt
+        
+        days = diff.days
+        hours, remainder = divmod(diff.seconds, 3600)
+        minutes, _ = divmod(remainder, 60)
+        
+        parts = []
+        if days > 0: parts.append(f"{days}d")
+        if hours > 0: parts.append(f"{hours}h")
+        if minutes > 0: parts.append(f"{minutes}m")
+        
+        return " ".join(parts) if parts else "0m"
+    except Exception:
+        return "N/A"
+
+
 def _get_interval_predictions(client, asset_prefix, model_prefix, intervals, latest_price=None):
     predictions = {}
     for interval in intervals:
@@ -335,11 +357,6 @@ def _interval_detail(request, interval, model_key="ARIMA"):
                         max_results=200
                     )
                     
-                    signals = []
-                    wins = 0
-                    total_resolved = 0
-                    total_profit = 0.0
-                    
                     # Convert runs to signals for processing
                     temp_signals = []
                     for run in runs:
@@ -355,17 +372,23 @@ def _interval_detail(request, interval, model_key="ARIMA"):
                                 'last_close': last_close,
                                 'pred_next': pred_next,
                                 'signal': signal,
+                                'run_id': run.info.run_id[:8],
                                 'mae': metrics.get("mae"),
                                 'mse': metrics.get("mse"),
                             })
                     
                     # Process signals to determine wins/losses
-                    changeover_signals = []
+                    full_history = []
+                    wins = 0
+                    total_resolved = 0
+                    total_profit = 0.0
+                    
                     for idx, curr in enumerate(temp_signals):
                         baseline_close = curr["last_close"]
                         
                         signal_row = {
                             "time": curr["time"],
+                            "run_id": curr["run_id"],
                             "last_close": f"{baseline_close:,.2f}",
                             "pred_next": f"{curr['pred_next']:,.2f}",
                             "predicted": f"{curr['pred_next']:,.2f}",
@@ -382,8 +405,7 @@ def _interval_detail(request, interval, model_key="ARIMA"):
                                 "result_class": "warning",
                                 "profit": "N/A",
                             })
-                            signals.append(signal_row)
-                            changeover_signals.append(signal_row)
+                            full_history.append(signal_row)
                             continue
 
                         next_actual = temp_signals[idx - 1]["last_close"]
@@ -405,18 +427,90 @@ def _interval_detail(request, interval, model_key="ARIMA"):
                             "result_class": "success" if is_win else "danger",
                             "profit": f"{profit:+,.2f}",
                         })
-                        signals.append(signal_row)
+                        full_history.append(signal_row)
 
-                        # Check for signal flip
-                        if idx + 1 < len(temp_signals) and curr["signal"] != temp_signals[idx + 1]["signal"]:
-                            changeover_signals.append(signal_row)
+                    # 1. Changeover Logic: Identify when signal direction flips (working ASC)
+                    temp_signals_asc = list(reversed(temp_signals))
+                    changeovers = []
+                    if temp_signals_asc:
+                        current_co = temp_signals_asc[0]
+                        changeovers.append(current_co)
+                        for i in range(1, len(temp_signals_asc)):
+                            if temp_signals_asc[i]["signal"] != current_co["signal"]:
+                                current_co = temp_signals_asc[i]
+                                changeovers.append(current_co)
+                    
+                    # Reverse to DESC for display
+                    changeovers.reverse()
+                    
+                    # 2. Format Changeovers for display (with next-trade-start-price-based P/L)
+                    formatted_changeovers = []
+                    equity_curve = [0]
+                    equity_timestamps = ["Initial"]
+                    running_equity = 0
+                    
+                    for i, co in enumerate(changeovers):
+                        row = {
+                            "time": co["time"],
+                            "signal": co["signal"],
+                            "signal_class": "success" if co["signal"] == "BUY" else "danger",
+                            "last_close": f"{co['last_close']:,.2f}",
+                            "end_time": "Active",
+                            "end_price": "---",
+                            "duration": "---",
+                            "profit_loss": "---",
+                            "pnl_class": "muted",
+                            "result": "RUNNING",
+                        }
+                        
+                        if i > 0:
+                            newer_co = changeovers[i-1]
+                            row["end_time"] = newer_co["time"]
+                            row["end_price"] = f"{newer_co['last_close']:,.2f}"
+                            row["duration"] = _format_duration(co["time"], newer_co["time"])
+                            
+                            # Next-trade-start-price-based P/L
+                            pnl = (newer_co["last_close"] - co["last_close"]) if co["signal"] == "BUY" else (co["last_close"] - newer_co["last_close"])
+                            row["profit_loss"] = f"{pnl:+,.2f}"
+                            row["profit_loss_val"] = pnl
+                            row["pnl_class"] = "success" if pnl > 0 else "danger"
+                            row["result"] = "PROFIT" if pnl > 0 else "LOSS"
+                            
+                            running_equity += pnl
+                            equity_curve.append(running_equity)
+                            equity_timestamps.append(newer_co["time"])
+                            
+                        formatted_changeovers.append(row)
+
+                    # 3. Create ROI Chart (Equity Curve)
+                    roi_fig = go.Figure()
+                    roi_fig.add_trace(go.Scatter(
+                        x=equity_timestamps, 
+                        y=equity_curve,
+                        mode='lines+markers',
+                        name='Equity Curve',
+                        line=dict(color='#00ff00', width=2),
+                        fill='tozeroy',
+                        fillcolor='rgba(0, 255, 0, 0.1)'
+                    ))
+                    roi_fig.update_layout(
+                        template='plotly_dark',
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        margin=dict(l=0, r=0, t=10, b=0),
+                        height=200,
+                        xaxis=dict(showgrid=False, visible=False),
+                        yaxis=dict(showgrid=True, gridcolor='#333'),
+                    )
+                    roi_chart_html = pio.to_html(roi_fig, full_html=False, config={'displayModeBar': False})
 
                     win_rate = (wins / total_resolved * 100) if total_resolved > 0 else 0
                     comparison_data[model_key] = {
                         'profit': f"{total_profit:+,.2f}",
                         'win_rate': f"{win_rate:.1f}%",
-                        'signals': signals[:20], # Show last 20
-                        'changeover_signals': changeover_signals[:10] # Show last 10 changes
+                        'signals': full_history[:20],
+                        'changeover_signals': formatted_changeovers,
+                        'roi_chart': roi_chart_html
                     }
             
             if selected_model in comparison_data:

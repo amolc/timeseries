@@ -228,7 +228,7 @@
                                 <tr style="font-size: 0.85rem;" class="js-signal-row" data-start="{{ signal.time }}" data-end="{{ signal.end_time }}">
                                     <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
                                     <td><span class="js-local-time" data-utc="{{ signal.end_time }}">{{ signal.end_time }}</span></td>
-                                    <td class="text-center js-duration">---</td>
+                                    <td class="text-center js-duration">{{ signal.duration|default:"---" }}</td>
                                     <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
                                     <td class="text-end">{{ signal.last_close|default:"---" }}</td>
                                     <td class="text-end">{{ signal.end_price|default:"---" }}</td>
@@ -357,7 +357,10 @@
             
             if (end) {
                 const diff = end - start;
-                durationEl.textContent = formatDuration(diff);
+                const formatted = formatDuration(diff);
+                if (formatted !== "N/A" && formatted !== "0m") {
+                    durationEl.textContent = formatted;
+                }
             }
         });
     </script>
