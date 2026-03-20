@@ -185,6 +185,13 @@ def spx500_dashboard(request):
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=df.index[-100:], y=df['Close'].iloc[-100:], 
                                 mode='lines', name='Price', line=dict(color='#3b82f6', width=3)))
+
+        # Add MA7 line for dashboard trend insight
+        if 'MA7' not in df.columns:
+            df['MA7'] = df['Close'].rolling(window=7).mean()
+        
+        fig.add_trace(go.Scatter(x=df.index[-100:], y=df['MA7'].iloc[-100:],
+                                mode='lines', name='MA7', line=dict(color='rgba(255,255,255,0.6)', width=1.5)))
         fig.update_layout(
             template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             margin=dict(l=0, r=0, t=0, b=0), height=400,

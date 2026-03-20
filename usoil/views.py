@@ -232,6 +232,13 @@ def usoil_dashboard(request):
         fig.add_trace(go.Scatter(x=df.index[-100:], y=df['Close'].iloc[-100:],
                                 mode='lines', name='Price', line=dict(color='#f7931a', width=3)))
 
+        # Add MA7 line for dashboard trend insight
+        if 'MA7' not in df.columns:
+            df['MA7'] = df['Close'].rolling(window=7).mean()
+        
+        fig.add_trace(go.Scatter(x=df.index[-100:], y=df['MA7'].iloc[-100:],
+                                mode='lines', name='MA7', line=dict(color='rgba(255,255,255,0.6)', width=1.5)))
+
         fig.update_layout(
             template='plotly_dark',
             paper_bgcolor='rgba(0,0,0,0)',
@@ -379,14 +386,6 @@ def _interval_detail(request, interval, model_override="ARIMA"):
         close=df["Close"].iloc[-chart_window:],
         name="Market Data",
     ))
-    if "MA7" in df.columns:
-        fig.add_trace(go.Scatter(
-            x=df.index[-chart_window:],
-            y=df["MA7"].iloc[-chart_window:],
-            mode="lines",
-            name="MA7",
-            line=dict(color="rgba(255,255,255,0.5)", width=1),
-        ))
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
