@@ -59,6 +59,13 @@ def _get_latest_prediction_for_experiment(client, experiment_name):
         return None
 
 
+def _fmt_run_timestamp(ms):
+    if not ms:
+        return "N/A"
+    from datetime import datetime, timezone
+    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
 def _get_latest_run_snapshot(client, experiment_name):
     try:
         exp = client.get_experiment_by_name(experiment_name)
@@ -76,13 +83,18 @@ def _get_latest_run_snapshot(client, experiment_name):
         last_close = _get_last_close_price(run)
         if pred is None or last_close is None:
             return None
+        
+        run_time = run.data.params.get("last_record_time")
+        if not run_time or run_time == "N/A":
+            run_time = _fmt_run_timestamp(run.info.start_time)
+            
         signal = "BUY" if pred > last_close else "SELL"
         return {
             "pred": pred,
             "last_close": last_close,
             "signal": signal,
             "signal_class": "success" if signal == "BUY" else "danger",
-            "run_time": run.data.params.get("last_record_time", "N/A"),
+            "run_time": run_time,
         }
     except Exception:
         return None

@@ -4,13 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ asset_name }} {{ interval|upper }} Detail | Quantbots Intelligence</title>
+    <title>{{ asset_name }} {{ interval|upper }} {{ selected_model_label }} Detail | Quantbots Intelligence</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --arima-blue: #3b82f6;
-            --spx-blue: #00d4ff;
+            --btc-orange: #f7931a;
             --dark-bg: #0d0d0d;
             --card-bg: #1a1a1a;
             --text-muted: #cdd6e1;
@@ -139,11 +139,10 @@
             <div class="col-md-8">
                 <h1 class="fw-800">{{ asset_name }} <span style="color: #7d8ca4">|</span> {{ interval|upper }} Interval
                 </h1>
-                <p class="text-muted">ARIMA-powered multi-interval forecasting and signal history</p>
-                <div class="d-flex flex-wrap gap-2 mt-3">
-                    <span class="fw-bold uppercase" style="font-size: 0.8rem; color: #7d8ca4;">MODEL:</span>
-                    <a href="{% url 'spx500:interval_detail_arima' interval %}"
-                        class="btn btn-sm btn-outline-primary active">ARIMA Forecasting</a>
+                <p class="text-muted">Comprehensive technical analysis and performance metrics</p>
+                <div class="d-flex flex-wrap gap-2 mt-3 align-items-center">
+                    <span class="text-muted small">MODEL:</span>
+                    <span class="badge bg-primary px-3 py-2">ARIMA Forecasting</span>
                 </div>
             </div>
             <div class="col-md-4 text-md-end">
@@ -160,15 +159,12 @@
                 </div>
             </div>
             <div class="col-lg-4">
-                <div class="row g-3 mb-4">
-                    <div class="col-12">
-                        <div class="forecast-box p-3 h-100">
-                            <div class="analytics-label" style="font-size: 0.7rem;">{{ selected_model_label }}</div>
-                            <div class="forecast-value" style="font-size: 1.5rem;">${{ forecast_price }}</div>
-                            <div class="text-muted x-small">Latest Run: <span class="js-local-time"
-                                    data-utc="{{ last_run_time }}">{{ last_run_time }}</span></div>
-                        </div>
-                    </div>
+                <div class="forecast-box mb-4">
+                    <div class="analytics-label">Predicted Next Close</div>
+                    <div class="forecast-value">${{ forecast_price }}</div>
+                    <div class="text-muted small mt-2">Model: {{ selected_model_label }}</div>
+                    <div class="text-muted x-small mt-1">Based on: <span class="js-local-time"
+                            data-utc="{{ last_run_time }}">{{ last_run_time }}</span></div>
                 </div>
 
                 <div class="row g-3">
@@ -191,10 +187,7 @@
                     <div class="col-12">
                         <div class="analytics-card">
                             <div class="analytics-label">ROI Projection</div>
-                            <div class="analytics-value text-success mb-2">{{ roi_estimate }}</div>
-                            <div class="roi-chart-container" style="height: 120px; overflow: hidden;">
-                                {{ comparison.ARIMA.roi_chart|safe }}
-                            </div>
+                            <div class="analytics-value text-success">{{ roi_estimate }}</div>
                         </div>
                     </div>
                 </div>
@@ -224,19 +217,22 @@
 
         <!-- New Model Performance Section -->
         <h3 class="mt-5 mb-4">{{ selected_model_label }} Performance & Signal History</h3>
-        <div class="row g-4">
-            {% if comparison.ARIMA %}
+
+        {% if comparison.ARIMA %}
+        <div class="row g-4 mb-4">
             <div class="col-lg-12">
                 <div class="analytics-card border-primary" style="border-width: 2px;">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="mb-0">ARIMA Forecasting</h5>
-                        <span class="badge bg-primary">Profit: {{ comparison.ARIMA.profit }} pts</span>
+                        <h5 class="mb-0">Signal Changeover History (ARIMA)</h5>
+                        <span
+                            class="badge {% if comparison.ARIMA.profit_val > 0 %}bg-success{% elif comparison.ARIMA.profit_val < 0 %}bg-danger{% else %}bg-primary{% endif %}">
+                            {% if comparison.ARIMA.profit_val > 0 %}Profit{% elif comparison.ARIMA.profit_val < 0
+                                %}Loss{% else %}Net{% endif %}: {{ comparison.ARIMA.profit }} pts </span>
                     </div>
                     <div class="analytics-label">Historical Win Rate: <strong>{{ comparison.ARIMA.win_rate }}</strong>
                     </div>
 
-                    <h6 class="mt-4 mb-3 text-info">Signal Changeover History (ARIMA)</h6>
-                    <div class="table-responsive mb-4">
+                    <div class="table-responsive">
                         <table class="table table-dark table-sm table-hover">
                             <thead>
                                 <tr class="text-muted" style="font-size: 0.75rem;">
@@ -269,14 +265,19 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </div>
 
-                    <h6 class="mt-4 mb-3 text-muted">Full Signal History (ARIMA)</h6>
-                    <div class="table-responsive mt-3">
+        <div class="row g-4 mb-5">
+            <div class="col-lg-12">
+                <div class="analytics-card border-secondary">
+                    <h5 class="mb-3">Full Signal History (ARIMA)</h5>
+                    <div class="table-responsive">
                         <table class="table table-dark table-sm table-hover">
                             <thead>
                                 <tr class="text-muted" style="font-size: 0.75rem;">
                                     <th>Time</th>
-                                    <th>Run ID</th>
                                     <th class="text-end">Close</th>
                                     <th class="text-end">Predicted</th>
                                     <th>Signal</th>
@@ -284,13 +285,13 @@
                                     <th class="text-end">Points</th>
                                     <th class="text-end">MSE</th>
                                     <th class="text-end">MAE</th>
+                                    <th class="text-end">Run ID</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for signal in comparison.ARIMA.signals %}
                                 <tr style="font-size: 0.85rem;">
                                     <td><span class="js-local-time" data-utc="{{ signal.time }}">{{ signal.time }}</span></td>
-                                    <td class="text-muted" style="font-size: 0.7rem;">{{ signal.run_id }}</td>
                                     <td class="text-end">{{ signal.last_close|default:"---" }}</td>
                                     <td class="text-end">{{ signal.pred_next|default:"---" }}</td>
                                     <td><span class="badge bg-{{ signal.signal_class }}">{{ signal.signal }}</span></td>
@@ -299,6 +300,7 @@
                                     <td class="text-end text-{{ signal.result_class }}">{{ signal.profit }}</td>
                                     <td class="text-end">{{ signal.mse }}</td>
                                     <td class="text-end">{{ signal.mae }}</td>
+                                    <td class="text-end text-muted small">{{ signal.run_id }}</td>
                                 </tr>
                                 {% empty %}
                                 <tr>
@@ -310,7 +312,24 @@
                     </div>
                 </div>
             </div>
-            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- ROI Simulation Note -->
+        <div class="alert alert-dark mt-5 border-secondary" role="alert" style="background-color: #111;">
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <span class="badge bg-warning text-dark">ROI NOTE</span>
+                </div>
+                <div class="col">
+                    <small class="text-muted">
+                        Simulated trading ROI is calculated by comparing predicted signals (BUY/SELL) against subsequent
+                        actual close prices.
+                        Win rates are based on the model's ability to correctly predict the direction of the next
+                        period's movement.
+                    </small>
+                </div>
+            </div>
         </div>
 
         <div class="mt-4 p-4 rounded-4" style="background: #141821; border: 1px solid #3a4558;">
@@ -328,37 +347,31 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function parseToDate(str) {
-            if (!str || str === "N/A" || str === "Active") return null;
-            const iso = str.trim().replace(" ", "T");
-            return new Date(iso.endsWith("Z") ? iso : `${iso}Z`);
+        function parseToDate(raw) {
+            if (!raw || raw.toUpperCase() === "N/A" || raw === "Active" || raw === "---") return null;
+            raw = raw.replace(" UTC", "").replace(" ", "T");
+            const dt = new Date(raw.endsWith("Z") ? raw : raw + "Z");
+            return Number.isNaN(dt.getTime()) ? null : dt;
         }
 
         function formatDuration(ms) {
-            if (ms < 0) return "N/A";
-            const seconds = Math.floor(ms / 1000);
-            const days = Math.floor(seconds / 86400);
-            const hours = Math.floor((seconds % 86400) / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
+            const minutes = Math.floor(ms / 60000);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
 
-            let parts = [];
-            if (days > 0) parts.push(`${days}d`);
-            if (hours > 0) parts.push(`${hours}h`);
-            if (minutes > 0) parts.push(`${minutes}m`);
-            return parts.length > 0 ? parts.join(" ") : "0m";
+            if (days > 0) return `${days}d ${hours % 24}h`;
+            if (hours > 0) return `${hours}h ${minutes % 60}m`;
+            return `${minutes}m`;
         }
 
-        // Local Time Conversion
+        // Handle local time conversion
         document.querySelectorAll(".js-local-time").forEach((el) => {
             const dt = parseToDate(el.dataset.utc);
-            if (!dt || Number.isNaN(dt.getTime())) return;
+            if (!dt) return;
+
             el.textContent = dt.toLocaleString(undefined, {
-                year: "numeric",
-                month: "short",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
+                year: "numeric", month: "short", day: "2-digit",
+                hour: "2-digit", minute: "2-digit", second: "2-digit",
             });
         });
 
@@ -377,7 +390,7 @@
             if (end) {
                 const diff = end - start;
                 const formatted = formatDuration(diff);
-                if (formatted !== "N/A") {
+                if (formatted !== "N/A" && formatted !== "0m") {
                     durationEl.textContent = formatted;
                 }
             }

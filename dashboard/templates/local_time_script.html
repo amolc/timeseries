@@ -1,0 +1,35 @@
+<script>
+    (function() {
+        function parseToDate(str) {
+            if (!str || str === "N/A" || str === "Active" || str === "---") return null;
+            const iso = str.trim().replace(" ", "T");
+            const dt = new Date(iso.endsWith("Z") ? iso : `${iso}Z`);
+            return Number.isNaN(dt.getTime()) ? null : dt;
+        }
+
+        function updateLocalTimes() {
+            document.querySelectorAll(".js-local-time").forEach((el) => {
+                const dt = parseToDate(el.dataset.utc || el.textContent);
+                if (!dt) return;
+                el.textContent = dt.toLocaleString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                });
+                // Once converted, we can remove the class or mark it to avoid double conversion
+                el.classList.remove("js-local-time");
+                el.classList.add("js-local-time-converted");
+            });
+        }
+
+        // Run on load
+        updateLocalTimes();
+        
+        // Also run when content might have changed (e.g. after HTMX or dynamic updates)
+        const observer = new MutationObserver(updateLocalTimes);
+        observer.observe(document.body, { childList: true, subtree: true });
+    })();
+</script>

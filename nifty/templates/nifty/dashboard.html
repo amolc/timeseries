@@ -202,7 +202,7 @@
                         </span>
                     </div>
                 </div>
-                <div class="x-small mt-2 text-muted">Call: {{ running_call_value }} | Time: {{ running_call_time }}</div>
+                <div class="x-small mt-2 text-muted">Call: {{ running_call_value }} | Time: <span class="js-local-time" data-utc="{{ running_call_time }}">{{ running_call_time }}</span></div>
             </div>
         </div>
 
@@ -263,6 +263,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% include "local_time_script.html" %}
     {% include "statcounter.html" %}
 </body>
 </html>
