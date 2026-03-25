@@ -15,3 +15,4 @@ cd "$PROJECT_ROOT/dashboard"
 echo "Starting Django Development Server..."
 # Run the Django server
 python3 manage.py runserver 0.0.0.0:9900
+# python3 manage.py runserver 0.0.0.0:9900 --settings=settings_dev
